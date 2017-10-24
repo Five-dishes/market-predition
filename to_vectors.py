@@ -26,7 +26,7 @@ start_date = datetime.datetime.strptime('20150201', '%Y%m%d')
 def get_feature_date_in_int(day: datetime.datetime) -> [int]:
     """
 
-    :param date
+    :param day
     :return: list of dates of past 2 weeks and the corresponding days in past 4 weeks
     """
     past_days = [day - datetime.timedelta(x) for x in range(1, num_past_days + 1)]
@@ -48,7 +48,7 @@ def get_features(df: pd.DataFrame, day: datetime.datetime) -> pd.Series:
     返回这个日期 过去2周的销售数量、过去4周对应星期X的销售数量 和 当天的销售数量
     """
     df2 = df.drop(['中类编码'], axis=1, inplace=False)
-    d = df2.set_index('销售日期').T.to_dict()  # WTF warning??
+    d = df2.set_index('销售日期').T.to_dict()
     feature_dates = get_feature_date_in_int(day)
 
     features = []
