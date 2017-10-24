@@ -27,15 +27,13 @@ def model_wrapper(feature_dim):
         model = Sequential()
         model.add(Dense(feature_dim, input_dim=feature_dim,
                         kernel_initializer='normal', activation='relu'))
-        model.add(Dense(feature_dim, input_dim=feature_dim,
+        model.add(Dense(feature_dim//2,
                         kernel_initializer='normal', activation='relu'))
-        model.add(Dense(feature_dim, input_dim=feature_dim,
-                        kernel_initializer='normal', activation='relu'))
-        model.add(Dense(feature_dim, input_dim=feature_dim,
+        model.add(Dense(feature_dim//4,
                         kernel_initializer='normal', activation='relu'))
         model.add(Dense(1, kernel_initializer='normal'))
         # Compile model
-        model.compile(loss='mean_squared_error', optimizer='adam')
+        model.compile(loss='mean_squared_error', optimizer='Adadelta')
         return model
     return baseline_model
 
@@ -43,7 +41,9 @@ def model_wrapper(feature_dim):
 seed = 7
 np.random.seed(seed)
 # evaluate model with standardized dataset
-estimator = KerasRegressor(build_fn=model_wrapper(dim), nb_epoch=100, batch_size=5, verbose=1)
+estimator = KerasRegressor(build_fn=model_wrapper(dim),
+        epochs=2000,
+        batch_size=64, verbose=1)
 
 kfold = KFold(n_splits=10, random_state=seed)
 results = cross_val_score(estimator, X, Y, cv=kfold)
