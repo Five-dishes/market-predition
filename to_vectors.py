@@ -22,7 +22,7 @@ import datetime
 import sys
 
 
-num_past_days = 30
+num_past_days = 1
 num_past_weeks = 4
 start_date = datetime.datetime.strptime('20150101', '%Y%m%d')
 
@@ -33,8 +33,8 @@ def get_feature_date_in_int(day: datetime.datetime) -> [int]:
     :param day
     :return: list of dates of past 2 weeks and the corresponding days in past 4 weeks
     """
-    past_days = [day - datetime.timedelta(x) for x in range(num_past_days + 1
-        , 0, -1)]
+    past_days = [day - datetime.timedelta(x) for x in range(
+        num_past_days, 0, -1)]
     #past_weekdays = [day - datetime.timedelta(x*7) for x in range(1,
     #    num_past_weeks + 1)]
     dates = past_days
