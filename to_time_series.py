@@ -41,10 +41,14 @@ model.add(Dense(1))
 model.compile(loss='mean_squared_error', optimizer='adam')
 
 epsilon = 0.0001
+
+
 def all_01(a: np.array) -> bool:
-    if np.all(np.abs(a - 0) > epsilon or np.abs(x - 1) > epsilon):
-        return True
-    return False
+    for x in a.flat:
+        if not (-epsilon < (x - 0) < epsilon or -epsilon < (x - 1) < epsilon):
+            return False
+    return True
+
 
 def predict(group: pd.DataFrame, regenerate_weights: bool = False):
     weights = model.get_weights()
@@ -53,6 +57,7 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
         weights = [np.random.permutation(w) for w in weights]
     else:
         print('Regenerating random weights==========')
+        print(weights)
         weights_1 = []
         for w in weights:
             if all_01(w):
@@ -60,6 +65,7 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
             else:
                 weights_1.append((np.random.rand(*w.shape) - 0.5) / 10)
         weights = weights_1
+        print(weights)
 
     model.set_weights(weights)
 
@@ -110,6 +116,8 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
 
 
 for mid_class, group in groups:
+    if mid_class <= 1002:
+        continue
     suc = False
     train_loss = -1
     score = -1
