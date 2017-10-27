@@ -40,7 +40,29 @@ model.add(LSTM(7, activation='relu',
 model.add(Dense(1))
 model.compile(loss='mean_squared_error', optimizer='adam')
 
-def predict(group: pd.DataFrame):
+epsilon = 0.0001
+def all_01(a: np.array) -> bool:
+    if np.all(np.abs(a - 0) > epsilon or np.abs(x - 1) > epsilon):
+        return True
+    return False
+
+def predict(group: pd.DataFrame, regenerate_weights: bool = False):
+    weights = model.get_weights()
+
+    if not regenerate_weights:
+        weights = [np.random.permutation(w) for w in weights]
+    else:
+        print('Regenerating random weights==========')
+        weights_1 = []
+        for w in weights:
+            if all_01(w):
+                weights_1.append(np.random.permutation(w))
+            else:
+                weights_1.append((np.random.rand(*w.shape) - 0.5) / 10)
+        weights = weights_1
+
+    model.set_weights(weights)
+
     period = len(group)
     spliter = 4 * period // 5
     train, test = group['diff'].values[0: spliter], \
@@ -51,7 +73,7 @@ def predict(group: pd.DataFrame):
     y = y.reshape(len(y), 1)
     X_test, y_test = test[:-1], test[1:]
     X_test = X_test.reshape(len(X_test), 1, 1)
-    y_test = y_test.reshape(len(y_test), 2)
+    y_test = y_test.reshape(len(y_test), 1)
 
     print('X shape: {}, y shape: {}'.format(X.shape, y.shape))
 
@@ -75,6 +97,10 @@ def predict(group: pd.DataFrame):
             train_loss_malformed += 1
             if train_loss_malformed > 50:
                 return False, None, None
+        if np.isnan(train_loss):
+            return False, None, None
+        else:
+            print(train_loss)
 
     model.predict(X, batch_size=1)
 
@@ -84,13 +110,13 @@ def predict(group: pd.DataFrame):
 
 
 for mid_class, group in groups:
-    print('Predicting {} -----------------'.format(mid_class))
     suc = False
     train_loss = -1
     score = -1
 
     while not suc:
-        suc, train_loss, score = predict(group)
+        print('Predicting {} -----------------'.format(mid_class))
+        suc, train_loss, score = predict(group, score != -1)
 
     out_str = '{}, {}, {}\n'.format(mid_class, score, train_loss)
 
