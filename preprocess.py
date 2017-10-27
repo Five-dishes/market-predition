@@ -57,5 +57,5 @@ df = pd.read_csv('data.csv', sep=',', header=0, encoding='gbk')
 reduced = df_reduce(df)
 reduced.drop('custid', axis=1, inplace=True)
 reduced.drop('是否促销', axis=1, inplace=True)
-reduced.to_csv('processed_1.csv', sep=',')
+reduced.to_csv('processed_1.csv', sep=',', encoding='gbk')
 
