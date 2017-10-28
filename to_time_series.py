@@ -4,6 +4,7 @@ import sys
 from sklearn.preprocessing import RobustScaler
 from keras.models import Sequential
 from keras.layers import Dense
+# from keras.layers import CuDNNLSTM as LSTM
 from keras.layers import LSTM
 from keras.callbacks import History
 from copy import deepcopy
@@ -32,9 +33,11 @@ print('total mid-class: {}'.format(len(groups)))
 batch_size = 1
 
 model = Sequential()
-model.add(LSTM(7, activation='relu',
-               batch_input_shape=(batch_size, 1, 1),
-               stateful=True))
+model.add(LSTM(7,
+    activation='relu',
+    batch_input_shape=(batch_size, 1, 1),
+    stateful=True,
+    ))
 # model.add(LSTM(4, return_sequences=True, activation='relu',
 #                stateful=True))
 model.add(Dense(1))
@@ -45,27 +48,29 @@ epsilon = 0.0001
 
 def all_01(a: np.array) -> bool:
     for x in a.flat:
+        if np.isnan(x):
+            return False
         if not (-epsilon < (x - 0) < epsilon or -epsilon < (x - 1) < epsilon):
             return False
     return True
 
+init_weights = model.get_weights()
 
 def predict(group: pd.DataFrame, regenerate_weights: bool = False):
-    weights = model.get_weights()
+    weights = init_weights
 
     if not regenerate_weights:
-        weights = [np.random.permutation(w) for w in weights]
+        pass
+        # weights = [np.random.permutation(w) for w in weights]
     else:
         print('Regenerating random weights==========')
-        print(weights)
         weights_1 = []
         for w in weights:
             if all_01(w):
-                weights_1.append(np.random.permutation(w))
+                weights_1.append(w)
             else:
                 weights_1.append((np.random.rand(*w.shape) - 0.5) / 10)
         weights = weights_1
-        print(weights)
 
     model.set_weights(weights)
 
@@ -116,8 +121,6 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
 
 
 for mid_class, group in groups:
-    if mid_class <= 1002:
-        continue
     suc = False
     train_loss = -1
     score = -1
@@ -129,7 +132,7 @@ for mid_class, group in groups:
     out_str = '{}, {}, {}\n'.format(mid_class, score, train_loss)
 
     print('Appending class {} -----------------'.format(mid_class))
-    with open('out.csv', 'a') as f:
+    with open('out2.csv', 'a') as f:
         f.write(out_str)
         f.flush()
 
