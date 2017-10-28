@@ -8,6 +8,7 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from keras.callbacks import History
 from copy import deepcopy
+from keras import backend as K
 
 
 # scale train and test data to [-1, 1]
@@ -32,47 +33,37 @@ print('total mid-class: {}'.format(len(groups)))
 
 batch_size = 1
 
-model = Sequential()
-model.add(LSTM(7,
-    activation='relu',
-    batch_input_shape=(batch_size, 1, 1),
-    stateful=True,
-    ))
+def get_model():
+    model = Sequential()
+    model.add(LSTM(7,
+        activation='relu',
+        batch_input_shape=(batch_size, 1, 1),
+        stateful=True,
+        ))
 # model.add(LSTM(4, return_sequences=True, activation='relu',
 #                stateful=True))
-model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam')
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    return model
 
 epsilon = 0.0001
 
+def print_weight(model):
+    for layer in model.layers:
+        weights = layer.get_weights()
+        print(layer.name)
+        print(weights)
 
-def all_01(a: np.array) -> bool:
-    for x in a.flat:
-        if np.isnan(x):
-            return False
-        if not (-epsilon < (x - 0) < epsilon or -epsilon < (x - 1) < epsilon):
-            return False
-    return True
-
-init_weights = model.get_weights()
+model = get_model()
 
 def predict(group: pd.DataFrame, regenerate_weights: bool = False):
-    weights = init_weights
+    global model
 
     if not regenerate_weights:
         pass
-        # weights = [np.random.permutation(w) for w in weights]
     else:
-        print('Regenerating random weights==========')
-        weights_1 = []
-        for w in weights:
-            if all_01(w):
-                weights_1.append(w)
-            else:
-                weights_1.append((np.random.rand(*w.shape) - 0.5) / 10)
-        weights = weights_1
-
-    model.set_weights(weights)
+        print('Recompiling model !!! ======')
+        model = get_model()
 
     period = len(group)
     spliter = 4 * period // 5
@@ -90,7 +81,6 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
 
 
     nb_epochs = 500
-
     train_loss = 0
     train_loss_malformed = 0
 
@@ -110,8 +100,6 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
                 return False, None, None
         if np.isnan(train_loss):
             return False, None, None
-        else:
-            print(train_loss)
 
     model.predict(X, batch_size=1)
 
@@ -121,6 +109,8 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
 
 
 for mid_class, group in groups:
+    if mid_class < 1004:
+        continue
     suc = False
     train_loss = -1
     score = -1
@@ -132,7 +122,7 @@ for mid_class, group in groups:
     out_str = '{}, {}, {}\n'.format(mid_class, score, train_loss)
 
     print('Appending class {} -----------------'.format(mid_class))
-    with open('out2.csv', 'a') as f:
+    with open('out.csv', 'a') as f:
         f.write(out_str)
         f.flush()
 
