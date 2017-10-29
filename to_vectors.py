@@ -22,7 +22,7 @@ import datetime
 import sys
 
 
-num_past_days = 1
+num_past_days = 30
 num_past_weeks = 4
 start_date = datetime.datetime.strptime('20150101', '%Y%m%d')
 

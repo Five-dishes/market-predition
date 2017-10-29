@@ -1,6 +1,8 @@
 .idea/
-data.csv
-processed_1.csv
-processed_2.csv
-out.csv
-out2.csv
+/data.csv
+/processed_1.csv
+/processed_2.csv
+/out.csv
+/out2.csv
+/history/
+
