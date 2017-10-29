@@ -25,8 +25,7 @@ def scale(train: np.array, test: np.array):
 df = pd.read_csv('processed_2.csv', sep=',', header=None, encoding='gbk')
 
 print(df.head())
-df = df.assign(diff=df[2].values - df[1].values)
-df.drop([1, 2], axis=1, inplace=True)
+df.drop([1], axis=1, inplace=True)
 
 groups = df.groupby([0])
 print('total mid-class: {}'.format(len(groups)))
@@ -67,8 +66,8 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
 
     period = len(group)
     spliter = 4 * period // 5
-    train, test = group['diff'].values[0: spliter], \
-                  group['diff'].values[spliter:]
+    train, test = group[2].values[0: spliter], \
+                  group[2].values[spliter:]
     scaler, train, test = scale(train, test)
     X, y = train[:-1], train[1:]
     X = X.reshape(len(X), 1, 1)
@@ -92,7 +91,7 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
         model.reset_states()
 
         train_loss = hist.history['loss'][0]
-        if train_loss < 0.52:
+        if train_loss < 0.01:
             break
         if train_loss > 10000:
             train_loss_malformed += 1
@@ -104,13 +103,12 @@ def predict(group: pd.DataFrame, regenerate_weights: bool = False):
     model.predict(X, batch_size=1)
 
     score = model.evaluate(X_test, y_test, batch_size=1, verbose=1)
+    print(X, X_test)
     print('\nMSE 1: {}'.format(score))
     return True, train_loss, score
 
 
 for mid_class, group in groups:
-    if mid_class < 1004:
-        continue
     suc = False
     train_loss = -1
     score = -1
@@ -125,4 +123,5 @@ for mid_class, group in groups:
     with open('out.csv', 'a') as f:
         f.write(out_str)
         f.flush()
+    break
 
