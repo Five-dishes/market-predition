@@ -22,8 +22,8 @@ import datetime
 import sys
 
 
-num_past_days = 4
-num_past_weeks = 4
+num_past_days = 28
+num_past_weeks = 0
 start_date = datetime.datetime.strptime('20150101', '%Y%m%d')
 
 
@@ -76,7 +76,6 @@ matrix = []
 for code, df in groups:  # 每一个group是一个中类
     for period in range(31 + 28 + 31 + 30):  # 4个月
         matrix.append(get_features(df, start_date + datetime.timedelta(period)))
-    break
 
 out = pd.concat(matrix, axis=1)
 out = out.transpose()
