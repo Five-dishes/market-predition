@@ -22,7 +22,7 @@ import datetime
 import sys
 
 
-num_past_days = 30
+num_past_days = 4
 num_past_weeks = 4
 start_date = datetime.datetime.strptime('20150101', '%Y%m%d')
 
@@ -35,9 +35,9 @@ def get_feature_date_in_int(day: datetime.datetime) -> [int]:
     """
     past_days = [day - datetime.timedelta(x) for x in range(
         num_past_days, 0, -1)]
-    #past_weekdays = [day - datetime.timedelta(x*7) for x in range(1,
-    #    num_past_weeks + 1)]
-    dates = past_days
+    past_weekdays = [day - datetime.timedelta(x*7) for x in range(
+        num_past_weeks, 0, -1)]
+    dates = past_days + past_weekdays
     dates.append(day)
     dates_int = [np.int64(date.strftime("%Y%m%d")) for date in dates]
     return dates_int
@@ -76,6 +76,7 @@ matrix = []
 for code, df in groups:  # 每一个group是一个中类
     for period in range(31 + 28 + 31 + 30):  # 4个月
         matrix.append(get_features(df, start_date + datetime.timedelta(period)))
+    break
 
 out = pd.concat(matrix, axis=1)
 out = out.transpose()
