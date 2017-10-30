@@ -8,7 +8,7 @@ class DateUtil:
         return np.int64(date.strftime("%Y%m%d"))
 
     @staticmethod
-    def int_to_date(date: np.int64) -> datetime.datetime:
+    def int_to_date(date: np.int64 or int) -> datetime.datetime:
         return datetime.datetime.strptime(str(date), "%Y%m%d")
 
     @staticmethod

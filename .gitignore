@@ -7,3 +7,4 @@
 /history/
 /*.swp
 /special.csv
+__pycache__/
