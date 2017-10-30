@@ -43,7 +43,6 @@ def select_feature(x):
     return selected
 
 
-
 def perform_on(model, train, test, scaler):
     X_train, y_train = train[:, :-1], train[:, -1]
     X_test, y_test= test[:, :-1], test[:, -1]
