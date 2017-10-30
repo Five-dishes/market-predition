@@ -70,15 +70,18 @@ if __name__ == '__main__':
     dates_all = make_dates()
 
     df = pd.read_csv('processed_1.csv', sep=',', header=0, encoding='gbk')
-    df.drop('大类编码', axis=1, inplace=True)
+    # df.drop('大类编码', axis=1, inplace=True)
     groups = df.groupby(['中类编码'])
     matrix = []
 
     for mid_class, group in groups:  # 每一个group是一个中类
+        large_class = group.iloc[0]['大类编码']
         sold_items_all = get_sold(group, dates_all)
         examples = np.array(split_to_examples(sold_items_all))
-        item_class_col = np.array([mid_class] * len(examples)).reshape(len(examples), 1)
-        examples = np.concatenate((item_class_col, examples), axis=1)
+        large_class_col = np.array([large_class] * len(examples)).reshape(len(examples), 1)
+        mid_class_col = np.array([mid_class] * len(examples)).reshape(len(examples), 1)
+        # examples = np.concatenate((large_class_col, mid_class_col, examples), axis=1)
+        examples = np.concatenate((mid_class_col, examples), axis=1)
         matrix.append(examples)
 
     out = np.concatenate(matrix, axis=0)

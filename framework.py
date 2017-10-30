@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import RobustScaler
 from sklearn.svm import SVR
+from naive_regression import NaiveRegression
 
 
 def select_feature(x):
@@ -80,10 +81,12 @@ if __name__ == '__main__':
     all_classes = pd.read_csv(
         'processed_2.csv', header=None, sep=',', encoding='gbk')
 
+    appeared_mid_class = all_classes[0].unique()
+
     groups = all_classes.groupby([0])
 
     models = {
-        # 'Naive Baseline':
+        'Naive Baseline': NaiveRegression(),
         'Linear Regression': LinearRegression(),
         'KNN 3': KNeighborsRegressor(n_neighbors=3),
         'Adaboost LR': AdaBoostRegressor(
@@ -110,7 +113,28 @@ if __name__ == '__main__':
         'SVR': SVR(),
     }
 
-    for mid_class, group in groups:
+    large_class_dict = {}
+    template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
+    mid_class_template = template['编码'].unique()
+    for mid_class in mid_class_template:
+        if mid_class < 100:
+            continue
+        large_class = mid_class // 100
+        for date in range(20150501, 20150531):
+            large_class_dict[(large_class, date)] = 0
+
+    mid_class_record = []
+
+    for mid_class in mid_class_template:
+        if mid_class < 100:
+            continue
+        if mid_class not in appeared_mid_class:
+            for date in range(20150501, 20150531):
+                mid_class_record.append((mid_class, date, 0))
+            continue
+
+        group = groups.get_group(mid_class)
+        large_class = mid_class // 100
         print('Current mid-class: {} ------------------'.format(mid_class))
         matrix = group.drop([0], axis=1).values
 
@@ -133,3 +157,18 @@ if __name__ == '__main__':
         results = predict(models[best_model], matrix)
         print(matrix[:, -1])
         print(results)
+
+        date = 20150501
+        for result in results:
+            large_class_dict[(large_class, date)] += result
+            mid_class_record.append((mid_class, date, result))
+            date += 1
+
+    mid_class_df = pd.DataFrame.from_records(mid_class_record)
+    large_class_tuple = [(*k, v) for k, v in large_class_dict.items()]
+    large_class_df = pd.DataFrame.from_records(large_class_tuple)
+    out = mid_class_df.append(large_class_df)
+    out.columns = ['编码', '日期', '销量']
+
+    out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
+

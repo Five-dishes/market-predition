@@ -8,3 +8,7 @@
 /*.swp
 /special.csv
 __pycache__/
+baseline.py
+origin-data.csv
+sample.csv
+template.csv
