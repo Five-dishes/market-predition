@@ -1,14 +1,7 @@
 .idea/
-/data.csv
-/processed_1.csv
-/processed_2.csv
-/out.csv
-/out2.csv
+/*.csv
 /history/
 /*.swp
 /special.csv
 __pycache__/
 baseline.py
-origin-data.csv
-sample.csv
-template.csv

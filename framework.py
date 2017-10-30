@@ -10,6 +10,8 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import RobustScaler
 from sklearn.svm import SVR
 from naive_regression import NaiveRegression
+from week_regression import WeekRegression
+from mode_regression import Mode
 
 
 def select_feature(x):
@@ -86,6 +88,8 @@ if __name__ == '__main__':
     groups = all_classes.groupby([0])
 
     models = {
+        'Week Average': WeekRegression(),
+        'Mode': Mode(),
         'Naive Baseline': NaiveRegression(),
         'Linear Regression': LinearRegression(),
         'KNN 3': KNeighborsRegressor(n_neighbors=3),
@@ -137,6 +141,7 @@ if __name__ == '__main__':
         large_class = mid_class // 100
         print('Current mid-class: {} ------------------'.format(mid_class))
         matrix = group.drop([0], axis=1).values
+        matrix = matrix.astype(np.float32)
 
         '''
         scaler = RobustScaler(with_scaling=True, with_centering=False)
