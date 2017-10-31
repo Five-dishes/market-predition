@@ -12,6 +12,9 @@ from sklearn.svm import SVR
 from naive_regression import NaiveRegression
 from week_regression import WeekRegression
 from mode_regression import Mode
+from hmmlearn.hmm import GaussianHMM
+from arima import ARIMA_
+from print_util import check_results
 
 
 def select_feature(x):
@@ -30,52 +33,42 @@ def push(x, y):
     return x
 
 
-def predict(model, matrix, predict_len=30):
+def predict(model, matrix, predict_len=30, is_time_related=False,
+            history_len=28):
     X, y = matrix[:, :-1], matrix[:, -1]
-    model.fit(X, y)
-    y_pred = deepcopy(y[-predict_len:])
     feature_list = []
-    for i in range(0, predict_len):
-        features = deepcopy(y_pred[-28:])
-        feature_list.append(features)
-        pred = model.predict(features.reshape(1, -1))
-        push(y_pred, pred)
-    return y_pred
+    if not is_time_related:
+        model.fit(X, y)
+        y_pred = deepcopy(y[- max(history_len, predict_len):])
+        for i in range(0, predict_len):
+            features = deepcopy(y_pred[-history_len:])
+            feature_list.append(features)
+            pred = model.predict(features.reshape(1, -1))
+            push(y_pred, pred)
+
+    else:
+        y_pred = deepcopy(np.concatenate((matrix[0][:-1], matrix[:, -1])))
+        for i in range(0, predict_len):
+            model.fit(y_pred)
+            features = deepcopy(y_pred)
+            feature_list.append(features)
+            pred = model.predict(features.reshape(1, -1))
+            push(y_pred, pred)
+
+    return y_pred[-predict_len:], feature_list
 
 
-def evaluate_on(model, train, test):
-    X_train, y_train = train[:, :-1], train[:, -1]
-    X_test, y_test= test[:, :-1], test[:, -1]
-
-    model.fit(X_train, y_train)
-
-    y_pred = deepcopy(y_train[-28:])
-    feature_list = []
-
-    # 使用预测出的序列进行下一轮预测
-    for i in range(0, len(X_test)):
-        # features = select_feature(y_pred)
-        features = deepcopy(y_pred)
-        feature_list.append(features)
-        pred = model.predict(features.reshape(1, -1))
-        push(y_pred, pred)
-
-    y_pred = y_pred[-len(y_test):]
+def evaluate_on(model, train, test, is_time_related):
+    X_test, y_test = test[:, :-1], test[:, -1]
+    y_pred, feature_list  = predict(model, train,
+                     predict_len=len(y_test),
+                     is_time_related=is_time_related)
 
     mse = ((y_pred - y_test) ** 2).mean()
     print('MSE \t\t {:4.2f}'.format(mse))
     show_sequence = False
-
     if show_sequence and mse > 30:
-        show_feature = False
-        print('Predicted\t\tExpected')
-        for x, a, b in zip(feature_list, y_pred, y_test):
-            if show_feature:
-                print('[', end='')
-                for f in x:
-                    print('{:4.2f}\t'.format(f), end='')
-                print(']', end='')
-            print('\t{:4.2f}\t\t{:4.2f}'.format(a, b))
+        check_results(feature_list, y_pred, y_test)
     return mse
 
 
@@ -88,9 +81,9 @@ if __name__ == '__main__':
     groups = all_classes.groupby([0])
 
     models = {
-        'Week Average': WeekRegression(),
+        'Weekday Average': NaiveRegression(),
+        'Last Week Average': WeekRegression(),
         'Mode': Mode(),
-        'Naive Baseline': NaiveRegression(),
         'Linear Regression': LinearRegression(),
         'KNN 3': KNeighborsRegressor(n_neighbors=3),
         'Adaboost LR': AdaBoostRegressor(
@@ -115,7 +108,15 @@ if __name__ == '__main__':
             # n_estimators=100, learning_rate=0.1,
             max_depth=1, loss='ls'),
         'SVR': SVR(),
+        'ARIMA': ARIMA_(),
+        # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
+
+    def is_time_related_model(mod):
+        time_related_models = ['ARIMA']
+        if mod in time_related_models:
+            return True
+        return False
 
     large_class_dict = {}
     template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
@@ -156,10 +157,10 @@ if __name__ == '__main__':
         for name in models:  # type=str
             print(name.ljust(20), ':', end='')
             model = models[name]
-            mse_dict[name] = evaluate_on(model, train, test)
+            mse_dict[name] = evaluate_on(model, train, test, is_time_related_model(name))
         best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
         print('Best model: {}'.format(best_model))
-        results = predict(models[best_model], matrix)
+        results, no_use = predict(models[best_model], matrix, is_time_related=is_time_related_model(best_model))
         print(matrix[:, -1])
         print(results)
 
