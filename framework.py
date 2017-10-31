@@ -19,13 +19,12 @@ from print_util import check_results
 
 def select_feature(x):
     short_term_features = [-4, -3, -2, -1]
-    # short_term_features = []
     long_term_features = [-28, -21, -14, -7]
     selected = x[short_term_features + long_term_features]
     return selected
 
 
-def push(x, y):
+def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
     push_len = len(y)
     assert len(x) >= push_len
     x[:-push_len] = x[push_len:]
@@ -76,10 +75,10 @@ if __name__ == '__main__':
     all_classes = pd.read_csv(
         'processed_2.csv', header=None, sep=',', encoding='gbk')
 
-    appeared_mid_class = all_classes[0].unique()
+    appeared_mid_class = all_classes[0].unique()  # 在训练数据出现过的中类
+    groups = all_classes.groupby([0])  # 按中类分组
 
-    groups = all_classes.groupby([0])
-
+    # 模型表
     models = {
         'Weekday Average': NaiveRegression(),
         'Last Week Average': WeekRegression(),
@@ -101,8 +100,8 @@ if __name__ == '__main__':
         ),
             # n_estimators=10, learning_rate=0.1,),
 
-        'Random Forest': RandomForestRegressor(
-            max_features=4, max_depth=3),
+        # 'Random Forest': RandomForestRegressor(
+        #     max_features=4, max_depth=3),
 
         'GBR': GradientBoostingRegressor(
             # n_estimators=100, learning_rate=0.1,
@@ -112,7 +111,7 @@ if __name__ == '__main__':
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
-    def is_time_related_model(mod):
+    def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
         time_related_models = ['ARIMA']
         if mod in time_related_models:
             return True
@@ -120,60 +119,58 @@ if __name__ == '__main__':
 
     large_class_dict = {}
     template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
-    mid_class_template = template['编码'].unique()
-    for mid_class in mid_class_template:
-        if mid_class < 100:
-            continue
-        large_class = mid_class // 100
+    class_template = template['编码'].unique()  # 读入要求预测的中类和大类
+    mid_class_template = class_template[class_template >= 100]  # 去除大类
+    large_class_template = class_template[class_template < 100]  # 去除中类
+
+    for large_class in large_class_template:
         for date in range(20150501, 20150531):
-            large_class_dict[(large_class, date)] = 0
+            large_class_dict[(large_class, date)] = 0  # 因为需要索引，大类用dict，key是二元tuple
 
     mid_class_record = []
 
     for mid_class in mid_class_template:
-        if mid_class < 100:
-            continue
-        if mid_class not in appeared_mid_class:
+        if mid_class not in appeared_mid_class:  # 迷之预测，初始化为0，可能可以根据大类预测。。
             for date in range(20150501, 20150531):
-                mid_class_record.append((mid_class, date, 0))
+                mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
             continue
 
         group = groups.get_group(mid_class)
         large_class = mid_class // 100
+
         print('Current mid-class: {} ------------------'.format(mid_class))
-        matrix = group.drop([0], axis=1).values
-        matrix = matrix.astype(np.float32)
-
-        '''
-        scaler = RobustScaler(with_scaling=True, with_centering=False)
-        scaler = scaler.fit(matrix)
-        matrix = scaler.transform(matrix)
-        '''
-
-        spliter = int(len(group) - min(28, int(len(group) * 0.2)))
-        train, test = matrix[0: spliter], matrix[spliter:]
+        matrix = group.drop([0], axis=1).values.astype(np.float32)  # 扔掉中类标签、转化为浮点数
+        spliter = int(len(group) - min(28, int(len(group) * 0.33)))  # 划分训练集与验证集
+        train, validation = matrix[0: spliter], matrix[spliter:]
 
         mse_dict = {}
         for name in models:  # type=str
             print(name.ljust(20), ':', end='')
             model = models[name]
-            mse_dict[name] = evaluate_on(model, train, test, is_time_related_model(name))
+            # 在验证集上测试
+            mse_dict[name] = evaluate_on(model, train, validation,
+                                         is_time_related_model(name))
+        # 找出在验证集上工作最好的模型
         best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
         print('Best model: {}'.format(best_model))
-        results, no_use = predict(models[best_model], matrix, is_time_related=is_time_related_model(best_model))
+
+        # 用验证集上的最优模型来预测（比较naive的方式）
+        results, no_use = predict(models[best_model], matrix,
+                                  is_time_related=is_time_related_model(best_model))
         print(matrix[:, -1])
         print(results)
 
         date = 20150501
         for result in results:
-            large_class_dict[(large_class, date)] += result
-            mid_class_record.append((mid_class, date, result))
+            result = max(0.0, result)  # 负数修正为0
+            large_class_dict[(large_class, date)] += result  # 大类预测 = 中类之和
+            mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1
 
     mid_class_df = pd.DataFrame.from_records(mid_class_record)
     large_class_tuple = [(*k, v) for k, v in large_class_dict.items()]
     large_class_df = pd.DataFrame.from_records(large_class_tuple)
-    out = mid_class_df.append(large_class_df)
+    out = mid_class_df.append(large_class_df)  # 拼接中类和大类的data frame
     out.columns = ['编码', '日期', '销量']
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
