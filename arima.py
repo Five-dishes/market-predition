@@ -3,12 +3,13 @@ from statsmodels.tsa.arima_model import ARIMA
 
 
 class ARIMA_:
-    def __init__(self):
+    def __init__(self, pdq):
         self.model = None
         self.error = False
+        self.pdq = pdq
 
     def fit(self, X):
-        model = ARIMA(X, order=(5, 0, 0))
+        model = ARIMA(X, order=self.pdq)
         try:
             self.error = False
             self.model = model.fit(disp=0)

@@ -54,6 +54,7 @@ def predict(model, matrix, predict_len=30, is_time_related=False,
             pred = model.predict(features.reshape(1, -1))
             push(y_pred, pred)
 
+    y_pred = y_pred.clip(min=0.0)
     return y_pred[-predict_len:], feature_list
 
 
@@ -107,12 +108,20 @@ if __name__ == '__main__':
             # n_estimators=100, learning_rate=0.1,
             max_depth=1, loss='ls'),
         'SVR': SVR(),
-        'ARIMA': ARIMA_(),
+        # 'ARIMA 1, 0, 1': ARIMA_((1, 0, 1)),
+        'ARIMA 0, 0, 1': ARIMA_((0, 0, 1)),
+        'ARIMA 1, 0, 0': ARIMA_((1, 0, 0)),
+        'ARIMA 1, 1, 1': ARIMA_((1, 1, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
     def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
-        time_related_models = ['ARIMA']
+        time_related_models = [
+            'ARIMA 1, 0, 1',
+            'ARIMA 0, 0, 1',
+            'ARIMA 1, 0, 0',
+            'ARIMA 1, 1, 1',
+        ]
         if mod in time_related_models:
             return True
         return False
@@ -138,7 +147,7 @@ if __name__ == '__main__':
         group = groups.get_group(mid_class)
         large_class = mid_class // 100
 
-        print('Current mid-class: {} ------------------'.format(mid_class))
+        print('Current mid-class: {} {}'.format(mid_class, '-'*80))
         matrix = group.drop([0], axis=1).values.astype(np.float32)  # 扔掉中类标签、转化为浮点数
         spliter = int(len(group) - min(28, int(len(group) * 0.33)))  # 划分训练集与验证集
         train, validation = matrix[0: spliter], matrix[spliter:]
@@ -162,7 +171,6 @@ if __name__ == '__main__':
 
         date = 20150501
         for result in results:
-            result = max(0.0, result)  # 负数修正为0
             large_class_dict[(large_class, date)] += result  # 大类预测 = 中类之和
             mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1
