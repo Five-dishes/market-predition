@@ -84,41 +84,42 @@ if __name__ == '__main__':
     # 模型表
     models = {
         'sep regression': SepRegression(smooth=False),
-        # 'Weekday Average': NaiveRegression(),
-        # 'Last Week Average': WeekRegression(),
-        # 'Weighted Regression': WeightRegression(smooth=False),
-        # 'Smooth Weighted Regression': WeightRegression(smooth=True),
-        # 'Mode': Mode(),
-        # 'Linear Regression': LinearRegression(),
-        # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
-        # 'Adaboost LR': AdaBoostRegressor(
-        #     base_estimator=LinearRegression(), loss='linear',
-        # ),
-        #     # n_estimators=10, learning_rate=0.1,),
-        #
-        # 'Adaboost DTR': AdaBoostRegressor(
-        #     loss='linear',
-        # ),
+        'Weekday Average': NaiveRegression(),
+        'Last Week Average': WeekRegression(),
+        'Weighted Regression': WeightRegression(smooth=False),
+        'Smooth Weighted Regression': WeightRegression(smooth=True),
+        'Mode': Mode(),
+        'Linear Regression': LinearRegression(),
+        'KNN 3': KNeighborsRegressor(n_neighbors=3),
+        'Adaboost LR': AdaBoostRegressor(
+            base_estimator=LinearRegression(), loss='linear',
+        ),
+            # n_estimators=10, learning_rate=0.1,),
 
-        # 'Adaboost SVR': AdaBoostRegressor(
-        #     base_estimator=SVR(), loss='linear',
-        # ),
-        #     # n_estimators=10, learning_rate=0.1,),
-        #
-        # # 'Random Forest': RandomForestRegressor(
-        # #     max_features=4, max_depth=3),
-        #
-        # 'GBR': GradientBoostingRegressor(
-        #     # n_estimators=100, learning_rate=0.1,
-        #     max_depth=1, loss='ls'),
-        # 'SVR': SVR(),
-        # 'ARIMA': ARIMA_((5, 0, 1)),
+        'Adaboost DTR': AdaBoostRegressor(
+            loss='linear',
+        ),
+
+        'Adaboost SVR': AdaBoostRegressor(
+            base_estimator=SVR(), loss='linear',
+        ),
+            # n_estimators=10, learning_rate=0.1,),
+
+        'Random Forest': RandomForestRegressor(
+            max_features=4, max_depth=3),
+
+        'GBR': GradientBoostingRegressor(
+            # n_estimators=100, learning_rate=0.1,
+            max_depth=1, loss='ls'),
+        'SVR': SVR(),
+        'ARIMA': ARIMA_((5, 0, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
     def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
         time_related_models = [
             'ARIMA',
+            'sep regression',
         ]
         if mod in time_related_models:
             return True
@@ -169,6 +170,19 @@ if __name__ == '__main__':
         # 用验证集上的最优模型来预测（比较naive的方式）
         results, no_use = predict(models[best_model], matrix,
                                   is_time_related=is_time_related_model(best_model))
+        arima_error = False
+        for value in results:
+            if value > 999:
+                arima_error = True
+        if arima_error:
+            assert best_model == 'ARIMA'
+            mse_dict.pop(best_model, None)
+            seconde_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+            print('ARIMA Error! Fall back to second best model {}'.format(seconde_model))
+            results, no_use = predict(models[seconde_model], matrix,
+                                      is_time_related=is_time_related_model(seconde_model))
+            model_usage_count[best_model] -= 1
+            model_usage_count[seconde_model] += 1
         print(matrix[:, -1])
         print(results)
 
