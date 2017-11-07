@@ -14,8 +14,10 @@ class ARIMA_:
             self.error = False
             self.model = model.fit(disp=0)
         except np.linalg.linalg.LinAlgError:
+            print('LinAlgError')
             self.error = True
         except:
+            print('Unknown Error')
             self.error = True
 
     def predict(self, X: np.array):

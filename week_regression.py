@@ -7,4 +7,4 @@ class WeekRegression:
 
     def predict(self, X: np.array):
         X = X[0]
-        return np.array([np.mean(X[np.array(range(-7, 0))])])
+        return np.array([np.mean(X[np.array(range(-3, 0))])])

@@ -13,6 +13,8 @@ from naive_regression import NaiveRegression
 from week_regression import WeekRegression
 from mode_regression import Mode
 from hmmlearn.hmm import GaussianHMM
+from weighted_regression import WeightRegression
+from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
 
@@ -81,46 +83,42 @@ if __name__ == '__main__':
 
     # 模型表
     models = {
-        'Weekday Average': NaiveRegression(),
-        'Last Week Average': WeekRegression(),
-        'Mode': Mode(),
-        'Linear Regression': LinearRegression(),
-        'KNN 3': KNeighborsRegressor(n_neighbors=3),
-        'Adaboost LR': AdaBoostRegressor(
-            base_estimator=LinearRegression(), loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
+        'sep regression': SepRegression(smooth=False),
+        # 'Weekday Average': NaiveRegression(),
+        # 'Last Week Average': WeekRegression(),
+        # 'Weighted Regression': WeightRegression(smooth=False),
+        # 'Smooth Weighted Regression': WeightRegression(smooth=True),
+        # 'Mode': Mode(),
+        # 'Linear Regression': LinearRegression(),
+        # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
+        # 'Adaboost LR': AdaBoostRegressor(
+        #     base_estimator=LinearRegression(), loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # 'Adaboost DTR': AdaBoostRegressor(
+        #     loss='linear',
+        # ),
 
-        'Adaboost DTR': AdaBoostRegressor(
-            loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
-
-        'Adaboost SVR': AdaBoostRegressor(
-            base_estimator=SVR(), loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
-
-        # 'Random Forest': RandomForestRegressor(
-        #     max_features=4, max_depth=3),
-
-        'GBR': GradientBoostingRegressor(
-            # n_estimators=100, learning_rate=0.1,
-            max_depth=1, loss='ls'),
-        'SVR': SVR(),
-        # 'ARIMA 1, 0, 1': ARIMA_((1, 0, 1)),
-        'ARIMA 0, 0, 1': ARIMA_((0, 0, 1)),
-        'ARIMA 1, 0, 0': ARIMA_((1, 0, 0)),
-        'ARIMA 1, 1, 1': ARIMA_((1, 1, 1)),
+        # 'Adaboost SVR': AdaBoostRegressor(
+        #     base_estimator=SVR(), loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # # 'Random Forest': RandomForestRegressor(
+        # #     max_features=4, max_depth=3),
+        #
+        # 'GBR': GradientBoostingRegressor(
+        #     # n_estimators=100, learning_rate=0.1,
+        #     max_depth=1, loss='ls'),
+        # 'SVR': SVR(),
+        # 'ARIMA': ARIMA_((5, 0, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
     def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
         time_related_models = [
-            'ARIMA 1, 0, 1',
-            'ARIMA 0, 0, 1',
-            'ARIMA 1, 0, 0',
-            'ARIMA 1, 1, 1',
+            'ARIMA',
         ]
         if mod in time_related_models:
             return True
@@ -131,6 +129,10 @@ if __name__ == '__main__':
     class_template = template['编码'].unique()  # 读入要求预测的中类和大类
     mid_class_template = class_template[class_template >= 100]  # 去除大类
     large_class_template = class_template[class_template < 100]  # 去除中类
+
+    model_usage_count = {}
+    for model in models:
+        model_usage_count[model] = 0
 
     for large_class in large_class_template:
         for date in range(20150501, 20150531):
@@ -161,6 +163,7 @@ if __name__ == '__main__':
                                          is_time_related_model(name))
         # 找出在验证集上工作最好的模型
         best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+        model_usage_count[best_model] += 1
         print('Best model: {}'.format(best_model))
 
         # 用验证集上的最优模型来预测（比较naive的方式）
@@ -182,4 +185,5 @@ if __name__ == '__main__':
     out.columns = ['编码', '日期', '销量']
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
+    print(model_usage_count)
 
