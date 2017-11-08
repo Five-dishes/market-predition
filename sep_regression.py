@@ -44,6 +44,7 @@ class SepRegression:
                 means.append(seq.mean())
             means = np.array(means).reshape(-1, 1)
             km = k_means(means, n_clusters=3, max_iter=100)
+            print(km)
             self.weights = gen_weight(km)
         # self.history_data = sequence[-28: 0]
 
@@ -70,3 +71,7 @@ if __name__ == '__main__':
     matrix = pd.read_csv(
         'processed_2.csv', header=None, sep=',', encoding='gbk').values
     wr.fit(matrix[0:45][:, 1:-1])
+    for row in range(30):
+        X, y = matrix[row][1:-1], matrix[row][-1]
+        print(y)
+        print(wr.predict([X]))
