@@ -17,6 +17,7 @@ from weighted_regression import WeightRegression
 from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
+from xgboost_predict import XGboost
 import time
 
 
@@ -120,6 +121,7 @@ if __name__ == '__main__':
         #     max_depth=1, loss='ls'),
         'SVR': SVR(),
         'ARIMA': ARIMA_((7, 0, 1)),
+        'XGboost': XGboost(),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
