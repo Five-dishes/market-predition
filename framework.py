@@ -119,7 +119,7 @@ if __name__ == '__main__':
         #     # n_estimators=100, learning_rate=0.1,
         #     max_depth=1, loss='ls'),
         'SVR': SVR(),
-        'ARIMA': ARIMA_((14, 0, 1)),
+        'ARIMA': ARIMA_((7, 0, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     mid_class_record = []
 
     for mid_class in mid_class_template:
-        start_time = time.clock()
+        start_time = time.time()
         if mid_class not in appeared_mid_class:  # 迷之预测，初始化为0，可能可以根据大类预测。。
             for date in range(20150501, 20150531):
                 mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
@@ -202,7 +202,7 @@ if __name__ == '__main__':
             mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1
 
-        print('Predicting class {} takes {}s'.format(mid_class, time.clock()-start_time))
+        print('Predicting class {} takes {}s'.format(mid_class, time.time()-start_time))
 
     mid_class_df = pd.DataFrame.from_records(mid_class_record)
     large_class_tuple = [(*k, v) for k, v in large_class_dict.items()]
