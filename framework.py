@@ -17,13 +17,7 @@ from weighted_regression import WeightRegression
 from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
-
-
-def select_feature(x):
-    short_term_features = [-4, -3, -2, -1]
-    long_term_features = [-28, -21, -14, -7]
-    selected = x[short_term_features + long_term_features]
-    return selected
+import time
 
 
 def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
@@ -35,13 +29,19 @@ def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
 
 
 def predict(model, matrix, predict_len=30, is_time_related=False,
-            history_len=28):
+            history_len=28, predict_one_week=False):
     X, y = matrix[:, :-1], matrix[:, -1]
     feature_list = []
+
+    if predict_one_week:
+        period_to_predict = 7
+    else:
+        period_to_predict = predict_len
+
     if not is_time_related:
         model.fit(X, y)
         y_pred = deepcopy(y[- max(history_len, predict_len):])
-        for i in range(0, predict_len):
+        for i in range(0, period_to_predict):
             features = deepcopy(y_pred[-history_len:])
             feature_list.append(features)
             pred = model.predict(features.reshape(1, -1))
@@ -49,12 +49,16 @@ def predict(model, matrix, predict_len=30, is_time_related=False,
 
     else:
         y_pred = deepcopy(np.concatenate((matrix[0][:-1], matrix[:, -1])))
-        for i in range(0, predict_len):
+        for i in range(0, period_to_predict):
             model.fit(y_pred)
             features = deepcopy(y_pred)
             feature_list.append(features)
             pred = model.predict(features.reshape(1, -1))
             push(y_pred, pred)
+
+    if predict_one_week:
+        predicted = np.tile((y_pred[-7:]), [5])
+        y_pred = predicted[:predict_len]
 
     y_pred = y_pred.clip(min=0.0)
     return y_pred[-predict_len:], feature_list
@@ -63,11 +67,14 @@ def predict(model, matrix, predict_len=30, is_time_related=False,
 def evaluate_on(model, train, test, is_time_related):
     X_test, y_test = test[:, :-1], test[:, -1]
     y_pred, feature_list  = predict(model, train,
-                     predict_len=len(y_test),
-                     is_time_related=is_time_related)
+                                    predict_len=len(y_test),
+                                    is_time_related=is_time_related,
+                                    predict_one_week=True)
 
     mse = ((y_pred - y_test) ** 2).mean()
     print('MSE \t\t {:4.2f}'.format(mse))
+    # print(y_test)
+    # print(y_pred)
     show_sequence = False
     if show_sequence and mse > 30:
         check_results(feature_list, y_pred, y_test)
@@ -84,35 +91,35 @@ if __name__ == '__main__':
     # 模型表
     models = {
         'sep regression': SepRegression(smooth=False),
+        'Weighted Regression': WeightRegression(smooth=False),
         'Weekday Average': NaiveRegression(),
         'Last Week Average': WeekRegression(),
-        'Weighted Regression': WeightRegression(smooth=False),
         'Smooth Weighted Regression': WeightRegression(smooth=True),
         'Mode': Mode(),
         'Linear Regression': LinearRegression(),
         'KNN 3': KNeighborsRegressor(n_neighbors=3),
-        'Adaboost LR': AdaBoostRegressor(
-            base_estimator=LinearRegression(), loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
-
-        'Adaboost DTR': AdaBoostRegressor(
-            loss='linear',
-        ),
-
-        'Adaboost SVR': AdaBoostRegressor(
-            base_estimator=SVR(), loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
-
-        'Random Forest': RandomForestRegressor(
-            max_features=4, max_depth=3),
-
-        'GBR': GradientBoostingRegressor(
-            # n_estimators=100, learning_rate=0.1,
-            max_depth=1, loss='ls'),
+        # 'Adaboost LR': AdaBoostRegressor(
+        #     base_estimator=LinearRegression(), loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # 'Adaboost DTR': AdaBoostRegressor(
+        #     loss='linear',
+        # ),
+        #
+        # 'Adaboost SVR': AdaBoostRegressor(
+        #     base_estimator=SVR(), loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # 'Random Forest': RandomForestRegressor(
+        #     max_features=4, max_depth=3),
+        #
+        # 'GBR': GradientBoostingRegressor(
+        #     # n_estimators=100, learning_rate=0.1,
+        #     max_depth=1, loss='ls'),
         'SVR': SVR(),
-        'ARIMA': ARIMA_((5, 0, 1)),
+        # 'ARIMA': ARIMA_((14, 0, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
@@ -142,6 +149,7 @@ if __name__ == '__main__':
     mid_class_record = []
 
     for mid_class in mid_class_template:
+        start_time = time.clock()
         if mid_class not in appeared_mid_class:  # 迷之预测，初始化为0，可能可以根据大类预测。。
             for date in range(20150501, 20150531):
                 mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
@@ -169,7 +177,8 @@ if __name__ == '__main__':
 
         # 用验证集上的最优模型来预测（比较naive的方式）
         results, no_use = predict(models[best_model], matrix,
-                                  is_time_related=is_time_related_model(best_model))
+                                  is_time_related=is_time_related_model(best_model),
+                                  predict_one_week=True)
         arima_error = False
         for value in results:
             if value > 999:
@@ -180,7 +189,8 @@ if __name__ == '__main__':
             seconde_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
             print('ARIMA Error! Fall back to second best model {}'.format(seconde_model))
             results, no_use = predict(models[seconde_model], matrix,
-                                      is_time_related=is_time_related_model(seconde_model))
+                                      is_time_related=is_time_related_model(seconde_model),
+                                      predict_one_week=True)
             model_usage_count[best_model] -= 1
             model_usage_count[seconde_model] += 1
         print(matrix[:, -1])
@@ -191,6 +201,8 @@ if __name__ == '__main__':
             large_class_dict[(large_class, date)] += result  # 大类预测 = 中类之和
             mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1
+
+        print('Predicting class {} takes {}s'.format(mid_class, time.clock()-start_time))
 
     mid_class_df = pd.DataFrame.from_records(mid_class_record)
     large_class_tuple = [(*k, v) for k, v in large_class_dict.items()]

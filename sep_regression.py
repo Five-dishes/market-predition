@@ -44,7 +44,6 @@ class SepRegression:
                 means.append(seq.mean())
             means = np.array(means).reshape(-1, 1)
             km = k_means(means, n_clusters=3, max_iter=100)
-            print(km)
             self.weights = gen_weight(km)
         # self.history_data = sequence[-28: 0]
 
