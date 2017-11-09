@@ -102,7 +102,6 @@ if __name__ == '__main__':
         # examples = np.concatenate((large_class_col, mid_class_col, examples), axis=1)
         examples = np.concatenate((mid_class_col, examples), axis=1)
         matrix.append(examples)
-        break
 
     out = np.concatenate(matrix, axis=0)
     out = pd.DataFrame(out)

@@ -119,7 +119,7 @@ if __name__ == '__main__':
         #     # n_estimators=100, learning_rate=0.1,
         #     max_depth=1, loss='ls'),
         'SVR': SVR(),
-        # 'ARIMA': ARIMA_((14, 0, 1)),
+        'ARIMA': ARIMA_((14, 0, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
