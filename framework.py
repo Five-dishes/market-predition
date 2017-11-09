@@ -97,7 +97,7 @@ if __name__ == '__main__':
         'Last Week Average': WeekRegression(),
         'Smooth Weighted Regression': WeightRegression(smooth=True),
         'Mode': Mode(),
-        'Linear Regression': LinearRegression(),
+        # 'Linear Regression': LinearRegression(),
         'KNN 3': KNeighborsRegressor(n_neighbors=3),
         # 'Adaboost LR': AdaBoostRegressor(
         #     base_estimator=LinearRegression(), loss='linear',
@@ -120,7 +120,7 @@ if __name__ == '__main__':
         #     # n_estimators=100, learning_rate=0.1,
         #     max_depth=1, loss='ls'),
         'SVR': SVR(),
-        'ARIMA': ARIMA_((7, 0, 1)),
+        'ARIMA': ARIMA_((14, 0, 3)),
         'XGboost': XGboost(),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
