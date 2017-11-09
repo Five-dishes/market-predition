@@ -1,4 +1,10 @@
 .idea/
-data.csv
-processed_1.csv
-processed_2.csv
+/*.csv
+/history/
+/*.swp
+/special.csv
+__pycache__/
+baseline.py
+x.txt
+x2.txt
+super-market-prediction-data.zip
