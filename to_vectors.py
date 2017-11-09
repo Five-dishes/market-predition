@@ -66,6 +66,24 @@ def split_to_examples(sold_items: [np.int64]) -> [[np.int64]]:
     return ret
 
 
+def day_of_week_smooth(x: [np.int64]):  # handle missing 31st...
+    end = len(x)
+    for i in range(end):
+        if x[i] != 0:
+            continue
+
+        left = i - 7
+        right = i + 7
+        if left >= 0 and right < end:
+            x[i] = (x[left] + x[right]) // 2
+        elif left < 0:
+            assert right < end
+            x[i] = x[right]
+        else:
+            assert right >= end
+            x[i] = x[left]
+
+
 if __name__ == '__main__':
     dates_all = make_dates()
 
@@ -77,12 +95,14 @@ if __name__ == '__main__':
     for mid_class, group in groups:  # 每一个group是一个中类
         large_class = group.iloc[0]['大类编码']
         sold_items_all = get_sold(group, dates_all)
+        day_of_week_smooth(sold_items_all)
         examples = np.array(split_to_examples(sold_items_all))
         large_class_col = np.array([large_class] * len(examples)).reshape(len(examples), 1)
         mid_class_col = np.array([mid_class] * len(examples)).reshape(len(examples), 1)
         # examples = np.concatenate((large_class_col, mid_class_col, examples), axis=1)
         examples = np.concatenate((mid_class_col, examples), axis=1)
         matrix.append(examples)
+        break
 
     out = np.concatenate(matrix, axis=0)
     out = pd.DataFrame(out)
