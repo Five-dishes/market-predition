@@ -66,11 +66,12 @@ def split_to_examples(sold_items: [np.int64]) -> [[np.int64]]:
     return ret
 
 
-def day_of_week_smooth(x: [np.int64]):  # handle missing 31st...
-    i = len(x) - 31  # 31st March
-    left = i - 7
-    right = i + 7
-    x[i] = (x[left] + x[right]) // 2
+def day_of_week_smooth(x: [np.int64]):  # handle missing data
+    days = [34, -31, -31 + 9, -31 + 16]  # 0204, 0331, 0409, 0416
+    for i in days:
+        left = i - 7
+        right = i + 14
+        x[i] = (x[left] + x[right]) // 2
 
 
 if __name__ == '__main__':
