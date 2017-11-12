@@ -20,12 +20,20 @@ class ARIMA_:
         except Exception as e:
             print('Unknown Error {}'.format(e))
             self.error = True
+        return self.model
 
     def predict(self, X: np.array):
         if self.error:
             return np.array([1000.0])
         result = self.model.forecast()[0]
         return np.array([result])
+
+    def predict_batch(self):
+        if self.error:
+            return np.array([1000.0])
+        result = self.model.forecast(steps=7)[0]
+        print(result)
+        return result
 
 
 if __name__ == '__main__':

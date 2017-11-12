@@ -19,4 +19,4 @@ for mid_class, group in groups:
         difficult_classes.append(mid_class)
 
 print(difficult_classes)
-# difficult_classes = [1201, 1203, 1505, 2201, 2202, 2203]
+# difficult_classes = [1201, 1203, 1505, 2201, 2202, 2203] important class
