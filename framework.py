@@ -12,13 +12,14 @@ from sklearn.svm import SVR
 from naive_regression import NaiveRegression
 from week_regression import WeekRegression
 from mode_regression import Mode
-from hmmlearn.hmm import GaussianHMM
+# from hmmlearn.hmm import GaussianHMM
 from weighted_regression import WeightRegression
 from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
 import time
 
+difficult_classes = [1201, 1203, 1505, 2201, 2202, 2203]
 
 def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
     push_len = len(y)
@@ -119,7 +120,7 @@ if __name__ == '__main__':
         #     # n_estimators=100, learning_rate=0.1,
         #     max_depth=1, loss='ls'),
         'SVR': SVR(),
-        # 'ARIMA': ARIMA_((14, 0, 1)),
+        'ARIMA': ARIMA_((14, 0, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
@@ -149,6 +150,9 @@ if __name__ == '__main__':
     mid_class_record = []
 
     for mid_class in mid_class_template:
+        if mid_class not in difficult_classes:
+            continue
+        print('difficult class -----', mid_class)
         start_time = time.clock()
         if mid_class not in appeared_mid_class:  # 迷之预测，初始化为0，可能可以根据大类预测。。
             for date in range(20150501, 20150531):
