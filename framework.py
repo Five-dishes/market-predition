@@ -12,9 +12,12 @@ from sklearn.svm import SVR
 from naive_regression import NaiveRegression
 from week_regression import WeekRegression
 from mode_regression import Mode
-from hmmlearn.hmm import GaussianHMM
-from arima import ARIMA_
+#from hmmlearn.hmm import GaussianHMM
+#from arima import ARIMA_
 from print_util import check_results
+from xgboost_predict import xgboost_
+from naive_select import  NaiveSelect
+from naive_select import  NaiveSelectWeight
 
 
 def select_feature(x):
@@ -81,37 +84,41 @@ if __name__ == '__main__':
 
     # 模型表
     models = {
-        'Weekday Average': NaiveRegression(),
-        'Last Week Average': WeekRegression(),
-        'Mode': Mode(),
-        'Linear Regression': LinearRegression(),
-        'KNN 3': KNeighborsRegressor(n_neighbors=3),
-        'Adaboost LR': AdaBoostRegressor(
-            base_estimator=LinearRegression(), loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
+        'xgboost': xgboost_(),
+        'naive_select' : NaiveSelect(),
+        'naive_selectWeight' : NaiveSelectWeight(),
 
-        'Adaboost DTR': AdaBoostRegressor(
-            loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
+        # 'Weekday Average': NaiveRegression(),
+        # 'Last Week Average': WeekRegression(),
+        # 'Mode': Mode(),
+        # 'Linear Regression': LinearRegression(),
+        # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
+        # 'Adaboost LR': AdaBoostRegressor(
+        #     base_estimator=LinearRegression(), loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # 'Adaboost DTR': AdaBoostRegressor(
+        #     loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # 'Adaboost SVR': AdaBoostRegressor(
+        #     base_estimator=SVR(), loss='linear',
+        # ),
+        #     # n_estimators=10, learning_rate=0.1,),
+        #
+        # # 'Random Forest': RandomForestRegressor(
+        # #     max_features=4, max_depth=3),
 
-        'Adaboost SVR': AdaBoostRegressor(
-            base_estimator=SVR(), loss='linear',
-        ),
-            # n_estimators=10, learning_rate=0.1,),
-
-        # 'Random Forest': RandomForestRegressor(
-        #     max_features=4, max_depth=3),
-
-        'GBR': GradientBoostingRegressor(
-            # n_estimators=100, learning_rate=0.1,
-            max_depth=1, loss='ls'),
+        # 'GBR': GradientBoostingRegressor(
+        #     # n_estimators=100, learning_rate=0.1,
+        #     max_depth=1, loss='ls'),
         'SVR': SVR(),
         # 'ARIMA 1, 0, 1': ARIMA_((1, 0, 1)),
-        'ARIMA 0, 0, 1': ARIMA_((0, 0, 1)),
-        'ARIMA 1, 0, 0': ARIMA_((1, 0, 0)),
-        'ARIMA 1, 1, 1': ARIMA_((1, 1, 1)),
+        # 'ARIMA 0, 0, 1': ARIMA_((0, 0, 1)),
+        # 'ARIMA 1, 0, 0': ARIMA_((1, 0, 0)),
+        # 'ARIMA 1, 1, 1': ARIMA_((1, 1, 1)),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
@@ -146,28 +153,31 @@ if __name__ == '__main__':
 
         group = groups.get_group(mid_class)
         large_class = mid_class // 100
+        small_groups = group.groupby([1])
+        results = np.zeros((30,), dtype=np.float32)
+        for small_class, small_group in small_groups:    #每个中类下 训练所有小类
+            print('Current small-class: {} {}'.format(small_class, '-'*80))
+            small_group = small_group.drop([0], axis=1)      #扔掉中类标签
+            matrix = small_group.drop([1], axis=1).values.astype(np.float32)  # 扔掉小类标签、转化为浮点数
+            spliter = int(len(small_group) - min(28, int(len(small_group) * 0.33)))  # 划分训练集与验证集
+            train, validation = matrix[0: spliter], matrix[spliter:]
 
-        print('Current mid-class: {} {}'.format(mid_class, '-'*80))
-        matrix = group.drop([0], axis=1).values.astype(np.float32)  # 扔掉中类标签、转化为浮点数
-        spliter = int(len(group) - min(28, int(len(group) * 0.33)))  # 划分训练集与验证集
-        train, validation = matrix[0: spliter], matrix[spliter:]
+            mse_dict = {}
+            for name in models:  # type=str
+                print(name.ljust(20), ':', end='')
+                model = models[name]
+                # 在验证集上测试
+                mse_dict[name] = evaluate_on(model, train, validation,
+                                            is_time_related_model(name))
+            # 找出在验证集上工作最好的模型
+            best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+            print('Best model: {}'.format(best_model))
 
-        mse_dict = {}
-        for name in models:  # type=str
-            print(name.ljust(20), ':', end='')
-            model = models[name]
-            # 在验证集上测试
-            mse_dict[name] = evaluate_on(model, train, validation,
-                                         is_time_related_model(name))
-        # 找出在验证集上工作最好的模型
-        best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
-        print('Best model: {}'.format(best_model))
-
-        # 用验证集上的最优模型来预测（比较naive的方式）
-        results, no_use = predict(models[best_model], matrix,
-                                  is_time_related=is_time_related_model(best_model))
-        print(matrix[:, -1])
-        print(results)
+            # 用验证集上的最优模型来预测（比较naive的方式）
+            small_results, no_use = predict(models[best_model], matrix,
+                                    is_time_related=is_time_related_model(best_model))
+           # print(small_results)
+            results = np.add(results, small_results)   #累加小类预测结果到中类
 
         date = 20150501
         for result in results:

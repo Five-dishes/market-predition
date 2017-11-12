@@ -17,7 +17,7 @@ import pandas as pd
 import datetime
 
 
-group_indices = ['大类编码', '中类编码', '销售日期']
+group_indices = ['大类编码', '中类编码','小类编码', '销售日期']
 
 template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
 mid_class = template['编码'].unique()
