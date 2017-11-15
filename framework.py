@@ -94,40 +94,20 @@ if __name__ == '__main__':
         'sep regression': SepRegression(smooth=False),
         'Weighted Regression': WeightRegression(smooth=False),
         'Weekday Average': NaiveRegression(),
-        'Last Week Average': WeekRegression(),
+        # 'Last Week Average': WeekRegression(),
         'Smooth Weighted Regression': WeightRegression(smooth=True),
-        'Mode': Mode(),
         # 'Linear Regression': LinearRegression(),
-        'KNN 3': KNeighborsRegressor(n_neighbors=3),
-        # 'Adaboost LR': AdaBoostRegressor(
-        #     base_estimator=LinearRegression(), loss='linear',
-        # ),
-        #     # n_estimators=10, learning_rate=0.1,),
-        #
-        # 'Adaboost DTR': AdaBoostRegressor(
-        #     loss='linear',
-        # ),
-        #
-        # 'Adaboost SVR': AdaBoostRegressor(
-        #     base_estimator=SVR(), loss='linear',
-        # ),
-        #     # n_estimators=10, learning_rate=0.1,),
-        #
-        # 'Random Forest': RandomForestRegressor(
-        #     max_features=4, max_depth=3),
-        #
-        # 'GBR': GradientBoostingRegressor(
-        #     # n_estimators=100, learning_rate=0.1,
-        #     max_depth=1, loss='ls'),
-        'SVR': SVR(),
-        'ARIMA': ARIMA_((14, 0, 3)),
+        # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
+        # 'SVR': SVR(),
+        # 'ARIMA7': ARIMA_((7, 0, 1)),
         'XGboost': XGboost(),
         # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
     }
 
     def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
         time_related_models = [
-            'ARIMA',
+            'ARIMA7',
+            'ARIMA14',
             'sep regression',
         ]
         if mod in time_related_models:
@@ -167,13 +147,15 @@ if __name__ == '__main__':
 
         mse_dict = {}
         for name in models:  # type=str
+            model_start_time = time.time()
             print(name.ljust(20), ':', end='')
             model = models[name]
             # 在验证集上测试
             mse_dict[name] = evaluate_on(model, train, validation,
                                          is_time_related_model(name))
+            print('Predicting with {} takes {}s'.format(name, time.time()-model_start_time))
         # 找出在验证集上工作最好的模型
-        best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+        best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]  # type: str
         model_usage_count[best_model] += 1
         print('Best model: {}'.format(best_model))
 
@@ -186,7 +168,7 @@ if __name__ == '__main__':
             if value > 999:
                 arima_error = True
         if arima_error:
-            assert best_model == 'ARIMA'
+            assert best_model.startswith('ARIMA')
             mse_dict.pop(best_model, None)
             seconde_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
             print('ARIMA Error! Fall back to second best model {}'.format(seconde_model))
