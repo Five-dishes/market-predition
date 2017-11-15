@@ -54,7 +54,7 @@ class SepRegression:
         max_ = X.max()
         error_dict = {}
         if min_ != max_:
-            for pred in np.arange(min_, max_, 0.05):
+            for pred in np.arange(min_, max_, 0.02):
                 error_dict[pred] = (((X - pred)*self.weights)**2).mean()
             best_pred = min(error_dict.items(), key=operator.itemgetter(1))[0]
             if self.smooth:

@@ -92,10 +92,10 @@ if __name__ == '__main__':
     # 模型表
     models = {
         'sep regression': SepRegression(smooth=False),
-        'Weighted Regression': WeightRegression(smooth=False),
-        'Weekday Average': NaiveRegression(),
+        # 'Weighted Regression': WeightRegression(smooth=False),
+        # 'Weekday Average': NaiveRegression(),
         # 'Last Week Average': WeekRegression(),
-        'Smooth Weighted Regression': WeightRegression(smooth=True),
+        # 'Smooth Weighted Regression': WeightRegression(smooth=True),
         # 'Linear Regression': LinearRegression(),
         # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
         # 'SVR': SVR(),
@@ -121,8 +121,10 @@ if __name__ == '__main__':
     large_class_template = class_template[class_template < 100]  # 去除中类
 
     model_usage_count = {}
+    model_mse_dict = {}
     for model in models:
         model_usage_count[model] = 0
+        model_mse_dict[model] = 0.0
 
     for large_class in large_class_template:
         for date in range(20150501, 20150531):
@@ -153,6 +155,7 @@ if __name__ == '__main__':
             # 在验证集上测试
             mse_dict[name] = evaluate_on(model, train, validation,
                                          is_time_related_model(name))
+            model_mse_dict[name] += mse_dict[name]
             print('Predicting with {} takes {}s'.format(name, time.time()-model_start_time))
         # 找出在验证集上工作最好的模型
         best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]  # type: str
@@ -196,4 +199,5 @@ if __name__ == '__main__':
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
     print(model_usage_count)
+    print(model_mse_dict)
 
