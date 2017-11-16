@@ -87,11 +87,14 @@ def evaluate_on(model, train, test, is_time_related):
 
 
 if __name__ == '__main__':
-    all_classes = pd.read_csv(
-        'processed_2.csv', header=None, sep=',', encoding='gbk')
+    all_classes_small = pd.read_csv(
+        'small_vector.csv', header=None, sep=',', encoding='gbk')
+    all_classes_mid = pd.read_csv(
+        'mid_vector.csv', header=None, sep=',', encoding='gbk')
 
-    appeared_mid_class = all_classes[0].unique()  # 在训练数据出现过的中类
-    groups = all_classes.groupby([0])  # 按中类分组
+    appeared_mid_class = all_classes_small[0].unique()  # 在训练数据出现过的中类
+    mid_class_groups_small = all_classes_small.groupby([0])  # 按中类分组
+    mid_class_groups_mid = all_classes_mid.groupby([0])  # 按中类分组
 
     # 模型表
     models = {
@@ -144,18 +147,49 @@ if __name__ == '__main__':
                 mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
             continue
 
-        group = groups.get_group(mid_class)
+        print('Current mid-class: {} {}'.format(mid_class, '='*80))
+
+        group = mid_class_groups_small.get_group(mid_class)
+        mid_group = mid_class_groups_mid.get_group(mid_class)
         large_class = mid_class // 100
 
         small_groups = group.groupby([1])
-        results = np.zeros((30,), dtype=np.float32)
+        small_class_results = np.zeros((30,), dtype=np.float32)
         predicted_validation = None
         mid_class_validation = None
+
+        # 中类直接预测
+        mid_group = mid_group.drop([0], axis=1)      # 扔掉中类标签
+        matrix = mid_group.values.astype(np.float32)  # 转化为浮点数
+        # print(len(mid_group))
+        spliter = int(len(mid_group) - min(7, int(len(mid_group) * 0.33)))  # 划分训练集与验证集
+        train_mid, validation_mid = matrix[0: spliter], matrix[spliter:]
+
+        mse_dict = {}
+        predicted_validation_dict = {}
+        for name in models:  # type=str
+            print(name.ljust(20), ':', end='')
+            model = models[name]
+            # 在验证集上测试
+            mse_dict[name], y_pred = evaluate_on(model, train_mid, validation_mid,
+                                                 is_time_related_model(name))
+            predicted_validation_dict[name] = y_pred
+        # 找出在验证集上工作最好的模型
+        best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+        best_predicted_validation = predicted_validation_dict[best_model]
+
+        print('Best mid-class model: {}'.format(best_model))
+
+        # 用验证集上的最优模型来预测（比较naive的方式）
+        mid_class_results, no_use = predict(models[best_model], matrix,
+                                            is_time_related=is_time_related_model(best_model),
+                                            predict_one_week=True)
+
         for small_class, small_group in small_groups:    # 每个中类下 训练所有小类
             print('Current small-class: {} {}'.format(small_class, '-'*80))
             small_group = small_group.drop([0], axis=1)      # 扔掉中类标签
             matrix = small_group.drop([1], axis=1).values.astype(np.float32)  # 扔掉小类标签、转化为浮点数
-            spliter = int(len(small_group) - min(28, int(len(small_group) * 0.33)))  # 划分训练集与验证集
+            spliter = int(len(small_group) - min(7, int(len(small_group) * 0.33)))  # 划分训练集与验证集
             train, validation = matrix[0: spliter], matrix[spliter:]
 
             if mid_class_validation is None:
@@ -183,16 +217,35 @@ if __name__ == '__main__':
 
             # 用验证集上的最优模型来预测（比较naive的方式）
             small_results, no_use = predict(models[best_model], matrix,
-                                    is_time_related=is_time_related_model(best_model))
-           # print(small_results)
-            results = np.add(results, small_results)   #累加小类预测结果到中类
+                                            is_time_related=is_time_related_model(best_model),
+                                            predict_one_week=True)
+            # print(small_results)
+            small_class_results = np.add(small_class_results, small_results)   # 累加小类预测结果到中类
 
-        print("MSE on mid class {} : {}".format(
-            mid_class,
-            np.mean((predicted_validation - mid_class_validation)**2)))
+        # print("small class accumulated validation:", mid_class_validation)
+        # print("mid class accumulated validation:", validation_mid[:, -1])
+
+        mid_pred_mse = np.mean((best_predicted_validation - validation_mid[:, -1])**2)
+        small_pred_mse = np.mean((predicted_validation - mid_class_validation)**2)
+
+        print("## MSE on mid class {} by mid class prediction: {}".format(
+            mid_class, mid_pred_mse))
+        print("## MSE on mid class {} by small class prediction: {}".format(
+            mid_class, small_pred_mse))
 
         date = 20150501
-        for result in results:
+        # print(small_class_results)
+        # print(mid_class_results)
+        if mid_pred_mse > small_pred_mse:
+            chosen_results = small_class_results
+            print("## Result by small class prediction is chosen")
+        else:
+            chosen_results = mid_class_results
+            print("## Result by mid class prediction is chosen")
+
+        print(chosen_results)
+
+        for result in chosen_results:
             large_class_dict[(large_class, date)] += result  # 大类预测 = 中类之和
             mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1

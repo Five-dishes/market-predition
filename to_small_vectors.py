@@ -77,7 +77,7 @@ def day_of_week_smooth(x: [np.int64]):  # handle missing data
 if __name__ == '__main__':
     dates_all = make_dates()
 
-    df = pd.read_csv('processed_1.csv', sep=',', header=0, encoding='gbk')
+    df = pd.read_csv('processed_small.csv', sep=',', header=0, encoding='gbk')
     # df.drop('大类编码', axis=1, inplace=True)
     groups = df.groupby(['小类编码'])
     matrix = []
@@ -99,5 +99,5 @@ if __name__ == '__main__':
 
     out = np.concatenate(matrix, axis=0)
     out = pd.DataFrame(out)
-    out.to_csv('processed_2.csv', sep=',', header=None, index=None)
+    out.to_csv('small_vector.csv', sep=',', header=None, index=None)
 
