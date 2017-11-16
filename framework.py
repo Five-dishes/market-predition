@@ -17,8 +17,12 @@ from weighted_regression import WeightRegression
 from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
-from xgboost_predict import XGboost
 import time
+from xgboost_predict import XGboost
+from naive_select import NaiveSelect
+from naive_select import NaiveSelectWeight
+
+
 
 
 def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
@@ -79,7 +83,7 @@ def evaluate_on(model, train, test, is_time_related):
     show_sequence = False
     if show_sequence and mse > 30:
         check_results(feature_list, y_pred, y_test)
-    return mse
+    return mse, y_pred
 
 
 if __name__ == '__main__':
@@ -101,7 +105,8 @@ if __name__ == '__main__':
         # 'SVR': SVR(),
         # 'ARIMA7': ARIMA_((7, 0, 1)),
         'XGboost': XGboost(),
-        # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
+        # 'naive_select': NaiveSelect(),
+        # 'naive_selectWeight': NaiveSelectWeight(),
     }
 
     def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
@@ -142,46 +147,49 @@ if __name__ == '__main__':
         group = groups.get_group(mid_class)
         large_class = mid_class // 100
 
-        print('Current mid-class: {} {}'.format(mid_class, '-'*80))
-        matrix = group.drop([0], axis=1).values.astype(np.float32)  # 扔掉中类标签、转化为浮点数
-        spliter = int(len(group) - min(28, int(len(group) * 0.33)))  # 划分训练集与验证集
-        train, validation = matrix[0: spliter], matrix[spliter:]
+        small_groups = group.groupby([1])
+        results = np.zeros((30,), dtype=np.float32)
+        predicted_validation = None
+        mid_class_validation = None
+        for small_class, small_group in small_groups:    # 每个中类下 训练所有小类
+            print('Current small-class: {} {}'.format(small_class, '-'*80))
+            small_group = small_group.drop([0], axis=1)      # 扔掉中类标签
+            matrix = small_group.drop([1], axis=1).values.astype(np.float32)  # 扔掉小类标签、转化为浮点数
+            spliter = int(len(small_group) - min(28, int(len(small_group) * 0.33)))  # 划分训练集与验证集
+            train, validation = matrix[0: spliter], matrix[spliter:]
 
-        mse_dict = {}
-        for name in models:  # type=str
-            model_start_time = time.time()
-            print(name.ljust(20), ':', end='')
-            model = models[name]
-            # 在验证集上测试
-            mse_dict[name] = evaluate_on(model, train, validation,
-                                         is_time_related_model(name))
-            model_mse_dict[name] += mse_dict[name]
-            print('Predicting with {} takes {}s'.format(name, time.time()-model_start_time))
-        # 找出在验证集上工作最好的模型
-        best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]  # type: str
-        model_usage_count[best_model] += 1
-        print('Best model: {}'.format(best_model))
+            if mid_class_validation is None:
+                mid_class_validation = validation[:, -1]
+            else:
+                mid_class_validation += validation[:, -1]
 
-        # 用验证集上的最优模型来预测（比较naive的方式）
-        results, no_use = predict(models[best_model], matrix,
-                                  is_time_related=is_time_related_model(best_model),
-                                  predict_one_week=True)
-        arima_error = False
-        for value in results:
-            if value > 999:
-                arima_error = True
-        if arima_error:
-            assert best_model.startswith('ARIMA')
-            mse_dict.pop(best_model, None)
-            seconde_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
-            print('ARIMA Error! Fall back to second best model {}'.format(seconde_model))
-            results, no_use = predict(models[seconde_model], matrix,
-                                      is_time_related=is_time_related_model(seconde_model),
-                                      predict_one_week=True)
-            model_usage_count[best_model] -= 1
-            model_usage_count[seconde_model] += 1
-        print(matrix[:, -1])
-        print(results)
+            mse_dict = {}
+            predicted_validation_dict = {}
+            for name in models:  # type=str
+                print(name.ljust(20), ':', end='')
+                model = models[name]
+                # 在验证集上测试
+                mse_dict[name], y_pred = evaluate_on(model, train, validation,
+                                            is_time_related_model(name))
+                predicted_validation_dict[name] = y_pred
+            # 找出在验证集上工作最好的模型
+            best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+            if predicted_validation is None:
+                predicted_validation = predicted_validation_dict[best_model]
+            else:
+                predicted_validation += predicted_validation_dict[best_model]
+
+            print('Best model: {}'.format(best_model))
+
+            # 用验证集上的最优模型来预测（比较naive的方式）
+            small_results, no_use = predict(models[best_model], matrix,
+                                    is_time_related=is_time_related_model(best_model))
+           # print(small_results)
+            results = np.add(results, small_results)   #累加小类预测结果到中类
+
+        print("MSE on mid class {} : {}".format(
+            mid_class,
+            np.mean((predicted_validation - mid_class_validation)**2)))
 
         date = 20150501
         for result in results:

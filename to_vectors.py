@@ -79,18 +79,22 @@ if __name__ == '__main__':
 
     df = pd.read_csv('processed_1.csv', sep=',', header=0, encoding='gbk')
     # df.drop('大类编码', axis=1, inplace=True)
-    groups = df.groupby(['中类编码'])
+    groups = df.groupby(['小类编码'])
     matrix = []
 
-    for mid_class, group in groups:  # 每一个group是一个中类
-        large_class = group.iloc[0]['大类编码']
+    for small_class, group in groups:  # 每一个group是一个小类
+        #print(group)
+        mid_class = group.iloc[0]['中类编码']
+        #print(mid_class)
         sold_items_all = get_sold(group, dates_all)
         day_of_week_smooth(sold_items_all)
         examples = np.array(split_to_examples(sold_items_all))
-        large_class_col = np.array([large_class] * len(examples)).reshape(len(examples), 1)
+        #print(examples)
         mid_class_col = np.array([mid_class] * len(examples)).reshape(len(examples), 1)
+        small_class_col = np.array([small_class] * len(examples)).reshape(len(examples), 1)
         # examples = np.concatenate((large_class_col, mid_class_col, examples), axis=1)
-        examples = np.concatenate((mid_class_col, examples), axis=1)
+        examples = np.concatenate((small_class_col, examples), axis=1)
+        examples = np.concatenate((mid_class_col, examples), axis=1)  #加入中类标签
         matrix.append(examples)
 
     out = np.concatenate(matrix, axis=0)
