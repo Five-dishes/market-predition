@@ -12,6 +12,7 @@ from weighted_regression import WeightRegression
 from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
+from pprint import pprint
 import time
 from xgboost_predict import XGboost
 
@@ -88,6 +89,7 @@ models = {
     # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
     # 'SVR': SVR(),
     # 'ARIMA7': ARIMA_((7, 0, 1)),
+    # 'ARIMA14': ARIMA_((14, 0, 1)),
     'XGboost': XGboost(),
     # 'naive_select': NaiveSelect(),
     # 'naive_selectWeight': NaiveSelectWeight(),
@@ -114,6 +116,8 @@ def full_service(matrix: np.array):
     mse_dict = {}
     prediction_on_validation_dict = {}
     for name in models:  # type=str
+        if (name == 'ARIMA7' or name == 'ARIMA14') and matrix[:, -1].mean() < 8:
+            continue
         print(name.ljust(30), ':', end='')
         model = models[name]
         # 在验证集上测试
@@ -153,10 +157,10 @@ if __name__ == '__main__':
     large_class_template = class_template[class_template < 100]  # 去除中类
 
     model_usage_count = {}
-    model_mse_dict = {}
     for model_name in models:
         model_usage_count[model_name] = 0
-        model_mse_dict[model_name] = 0.0
+
+    class_mse_dict = {}
 
     for large_class in large_class_template:
         for date in range(20150501, 20150531):
@@ -171,8 +175,6 @@ if __name__ == '__main__':
                 mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
             continue
 
-        print('Current mid-class: {} {}'.format(mid_class, '=' * 80))
-
         group = mid_class_groups_small.get_group(mid_class)
         mid_group = mid_class_groups_mid.get_group(mid_class)
         large_class = mid_class // 100
@@ -182,6 +184,12 @@ if __name__ == '__main__':
         # 中类直接预测
         mid_group = mid_group.drop([0], axis=1)  # 扔掉中类标签
         matrix_mid = mid_group.values.astype(np.float32)  # 转化为浮点数
+
+        if matrix_mid[:, -1].mean() < 10:
+            continue
+
+        print('Current mid-class: {} {}'.format(mid_class, '=' * 80))
+
         best_validated_model_mid, best_validated_prediction_mid, \
             pred_on_test_mid, mse_mid, used_valid_set_mid = \
             full_service(matrix_mid)
@@ -216,12 +224,15 @@ if __name__ == '__main__':
         # print(small_class_results)
         # print(mid_class_results)
         if mse_mid > mse_small:
+            class_mse_dict[mid_class] = mse_small
             chosen_results = accumulated_pred_on_test_small
             print("## Result by small class accumulation prediction is chosen")
         else:
+            class_mse_dict[mid_class] = mse_mid
             chosen_results = pred_on_test_mid
             print("## Result by mid class prediction is chosen")
 
+        print(matrix_mid[:, -1])
         print(chosen_results)
 
         for result in chosen_results:
@@ -238,5 +249,4 @@ if __name__ == '__main__':
     out.columns = ['编码', '日期', '销量']
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
-    print(model_usage_count)
-    print(model_mse_dict)
+    pprint(class_mse_dict)
