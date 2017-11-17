@@ -88,7 +88,7 @@ models = {
     # 'Linear Regression': LinearRegression(),
     # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
     # 'SVR': SVR(),
-    # 'ARIMA7': ARIMA_((7, 0, 1)),
+    'ARIMA7': ARIMA_((7, 0, 1)),
     # 'ARIMA14': ARIMA_((14, 0, 1)),
     'XGboost': XGboost(),
     # 'naive_select': NaiveSelect(),
@@ -96,10 +96,14 @@ models = {
 }
 
 
+def is_arima(mod: str):
+    return mod.startswith("ARIMA")
+
+
 def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
+    if is_arima(mod):
+        return True
     time_related_models = [
-        'ARIMA7',
-        'ARIMA14',
         'sep regression',
     ]
     if mod in time_related_models:
@@ -107,16 +111,21 @@ def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格
     return False
 
 
-def full_service(matrix: np.array):
+valid_matrix = []
+
+
+def full_service(matrix: np.array, cur_class):
     # print(len(mid_group))
     # spliter = int(len(matrix) - min(7, int(len(matrix) * 0.33)))  # validation set 设为7
     spliter = int(len(matrix) - 7)  # 划分训练集与验证集
     train_set, validation_set = matrix[0: spliter], matrix[spliter:]
 
+    ss = np.array([cur_class, 'validation', *validation_set[:, -1]]).reshape((1, -1))
+    valid_matrix.append(ss)
     mse_dict = {}
     prediction_on_validation_dict = {}
     for name in models:  # type=str
-        if (name == 'ARIMA7' or name == 'ARIMA14') and matrix[:, -1].mean() < 8:
+        if is_arima(name) and matrix[:, -1].mean() < 10:
             continue
         print(name.ljust(30), ':', end='')
         model = models[name]
@@ -124,6 +133,8 @@ def full_service(matrix: np.array):
         mse_dict[name], prediction_on_validation = evaluate_on(
             model, train_set, validation_set, is_time_related_model(name))
         prediction_on_validation_dict[name] = prediction_on_validation
+        ss = np.array([cur_class, name, *prediction_on_validation]).reshape((1, -1))
+        valid_matrix.append(ss)
     # 找出在验证集上工作最好的模型
     best_model_on_validation = min(mse_dict.items(), key=operator.itemgetter(1))[0]
     best_prediction_on_validation = prediction_on_validation_dict[best_model_on_validation]
@@ -192,7 +203,7 @@ if __name__ == '__main__':
 
         best_validated_model_mid, best_validated_prediction_mid, \
             pred_on_test_mid, mse_mid, used_valid_set_mid = \
-            full_service(matrix_mid)
+            full_service(matrix_mid, mid_class)
 
         overall_validated_pred_small = np.zeros_like(used_valid_set_mid)
         accumulated_valid_set_small = np.zeros_like(best_validated_prediction_mid)
@@ -204,7 +215,7 @@ if __name__ == '__main__':
 
             best_validated_model_small, best_validated_pred_small, \
                 pred_on_test_small, best_mse_small, used_valid_set_small = \
-                full_service(matrix_small)
+                full_service(matrix_small, small_class)
 
             overall_validated_pred_small += best_validated_pred_small
             accumulated_valid_set_small += used_valid_set_small
@@ -250,3 +261,8 @@ if __name__ == '__main__':
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
     pprint(class_mse_dict)
+
+    valid_matrix = np.concatenate(valid_matrix, axis=0)
+    valid_df = pd.DataFrame(valid_matrix)
+    valid_df.to_csv('valid.csv', sep=',', index=None, encoding='gbk')
+
