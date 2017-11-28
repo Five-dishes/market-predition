@@ -19,8 +19,8 @@ import datetime
 
 group_indices = ['大类编码', '中类编码','小类编码', '销售日期']
 
-template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
-mid_class = template['编码'].unique()
+template = pd.read_csv('template-semi.csv', sep=',', header=0, encoding='gbk')
+mid_class = template['bianma'].unique()
 
 
 def add_up(rows: pd.DataFrame) -> pd.Series:
@@ -32,14 +32,14 @@ def add_up(rows: pd.DataFrame) -> pd.Series:
 
     This function count number of orders each mid-class per day.
     """
-    ret = pd.Series(rows.iloc[0])
+    ret = pd.Series()
     sales = len(rows)  # count unique orders instead of #sold
     ret['销售数量'] = sales
-    ret['custid'] = 0
-    day = datetime.datetime.strptime(str(ret['销售日期']), '%Y%m%d')
+    # ret['custid'] = 0
+    # day = datetime.datetime.strptime(str(ret['销售日期']), '%Y%m%d')
     # ret['day of week'] = datetime.datetime.weekday(day)
     # ret['day of week 2'] = day.strftime('%a')
-    ret.drop(group_indices, inplace=True)
+    # ret.drop(group_indices, inplace=True)
 
     return ret
 
@@ -56,14 +56,14 @@ def df_reduce(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(group_indices).apply(add_up)
 
 
-df = pd.read_csv('origin-data.csv', sep=',', header=0, encoding='gbk')
+df = pd.read_csv('train-data-semi.csv', sep=',', header=0, encoding='gbk')
 reduced = df_reduce(df)
 
 for index in reduced.index:
     if index[1] not in mid_class:
         reduced.drop(index, inplace=True)
 
-reduced.drop('custid', axis=1, inplace=True)
-reduced.drop('是否促销', axis=1, inplace=True)
+# reduced.drop('custid', axis=1, inplace=True)
+# reduced.drop('是否促销', axis=1, inplace=True)
 reduced.to_csv('processed_small.csv', sep=',', encoding='gbk')
 
