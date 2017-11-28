@@ -25,7 +25,7 @@ du = DateUtil()
 num_past_days = 28
 num_past_weeks = 0
 start_date_int = 20150101
-end_date_int = 20150430
+end_date_int = 20150831
 
 
 def make_dates() -> [np.int64]:
@@ -67,10 +67,25 @@ def split_to_examples(sold_items: [np.int64]) -> [[np.int64]]:
 
 
 def day_of_week_smooth(x: [np.int64]):  # handle missing data
-    days = [34, -31, -31 + 9, -31 + 16]  # 0204, 0331, 0409, 0416
-    for i in days:
+    index_limit = du.distance(start_date_int, end_date_int)
+    fuck_days = ['0204', '0331', '0409', '0416', '0531', '0731',]
+    # days = [34, -31, -31 + 9, -31 + 16]  # 0204, 0331, 0409, 0416
+    fuck_day_indices = []
+    for day in fuck_days:
+        day = int('2015' + day)
+        distance_to_start = du.distance(start_date_int, day)
+        fuck_day_indices.append(distance_to_start)
+
+    print(fuck_day_indices)
+    for i in fuck_day_indices:
         left = i - 7
-        right = i + 14
+        right = i + 7
+        if right in fuck_day_indices:
+            right += 7
+        if right > index_limit:
+            right = left
+        print(right, index_limit)
+
         x[i] = (x[left] + x[right]) // 2
 
 

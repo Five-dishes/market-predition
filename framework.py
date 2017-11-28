@@ -25,7 +25,7 @@ def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
     return x
 
 
-def predict(model, matrix, predict_len=30, is_time_related=False,
+def predict(model, matrix, predict_len=59, is_time_related=False,
             history_len=28, predict_one_week=False):
     X, y = matrix[:, :-1], matrix[:, -1]
     feature_list = []
@@ -54,7 +54,7 @@ def predict(model, matrix, predict_len=30, is_time_related=False,
             push(y_pred, pred)
 
     if predict_one_week:
-        predicted = np.tile((y_pred[-7:]), [5])
+        predicted = np.tile((y_pred[-7:]), [9])
         y_pred = predicted[:predict_len]
 
     y_pred = y_pred.clip(min=0.0)
@@ -80,17 +80,17 @@ def evaluate_on(model, train, test, is_time_related):
 
 # 模型表
 models = {
-    'sep regression': SepRegression(smooth=False),
-    # 'Weighted Regression': WeightRegression(smooth=False),
+    # 'sep regression': SepRegression(smooth=False),
+    'Weighted Regression': WeightRegression(smooth=False),
     # 'Weekday Average': NaiveRegression(),
     # 'Last Week Average': WeekRegression(),
     # 'Smooth Weighted Regression': WeightRegression(smooth=True),
     # 'Linear Regression': LinearRegression(),
     # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
     # 'SVR': SVR(),
-    'ARIMA7': ARIMA_((7, 0, 1)),
+    # 'ARIMA7': ARIMA_((7, 0, 1)),
     # 'ARIMA14': ARIMA_((14, 0, 1)),
-    'XGboost': XGboost(),
+    # 'XGboost': XGboost(),
     # 'naive_select': NaiveSelect(),
     # 'naive_selectWeight': NaiveSelectWeight(),
 }
@@ -152,6 +152,8 @@ def full_service(matrix: np.array, cur_class):
 
 
 if __name__ == '__main__':
+    date_range = list(range(20150901, 20150931))
+    date_range += list(range(20151001, 20151030))
     all_classes_small = pd.read_csv(
         'small_vector.csv', header=None, sep=',', encoding='gbk')
     all_classes_mid = pd.read_csv(
@@ -162,8 +164,8 @@ if __name__ == '__main__':
     mid_class_groups_mid = all_classes_mid.groupby([0])  # 按中类分组
 
     large_class_dict = {}
-    template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
-    class_template = template['编码'].unique()  # 读入要求预测的中类和大类
+    template = pd.read_csv('template-semi.csv', sep=',', header=0, encoding='gbk')
+    class_template = template['bianma'].unique()  # 读入要求预测的中类和大类
     mid_class_template = class_template[class_template >= 100]  # 去除大类
     large_class_template = class_template[class_template < 100]  # 去除中类
 
@@ -174,30 +176,32 @@ if __name__ == '__main__':
     class_mse_dict = {}
 
     for large_class in large_class_template:
-        for date in range(20150501, 20150531):
-            large_class_dict[(large_class, date)] = 0  # 因为需要索引，大类用dict，key是二元tuple
+        for date in date_range:
+            if date != 20150910:
+                large_class_dict[(large_class, date)] = 0  # 因为需要索引，大类用dict，key是二元tuple
 
     mid_class_record = []
 
     for mid_class in mid_class_template:
         start_time = time.time()
         if mid_class not in appeared_mid_class:  # 迷之预测，初始化为0，可能可以根据大类预测。。
-            for date in range(20150501, 20150531):
-                mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
+            for date in date_range:
+                if date != 20150910:
+                    mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
             continue
 
         group = mid_class_groups_small.get_group(mid_class)
         mid_group = mid_class_groups_mid.get_group(mid_class)
         large_class = mid_class // 100
         small_groups = group.groupby([1])
-        accumulated_pred_on_test_small = np.zeros((30,), dtype=np.float32)
+        accumulated_pred_on_test_small = np.zeros((59,), dtype=np.float32)
 
         # 中类直接预测
         mid_group = mid_group.drop([0], axis=1)  # 扔掉中类标签
         matrix_mid = mid_group.values.astype(np.float32)  # 转化为浮点数
 
-        if matrix_mid[:, -1].mean() < 10:
-            continue
+        # if matrix_mid[:, -1].mean() < 10:
+        #     continue
 
         print('Current mid-class: {} {}'.format(mid_class, '=' * 80))
 
@@ -231,7 +235,7 @@ if __name__ == '__main__':
         print("## MSE on mid class {} by small class accumulation prediction: {}".format(
             mid_class, mse_small))
 
-        date = 20150501
+        date = 20150901
         # print(small_class_results)
         # print(mid_class_results)
         if mse_mid > mse_small:
@@ -247,9 +251,14 @@ if __name__ == '__main__':
         print(chosen_results)
 
         for result in chosen_results:
+            if date == 20150910:
+                date += 1
+                continue
             large_class_dict[(large_class, date)] += result  # 大类预测 = 中类之和
             mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1
+            if date == 20150931:
+                date = 20151001
 
         print('Predicting mid class {} takes {}s'.format(mid_class, time.time() - start_time))
 
@@ -257,7 +266,7 @@ if __name__ == '__main__':
     large_class_tuple = [(*k, v) for k, v in large_class_dict.items()]
     large_class_df = pd.DataFrame.from_records(large_class_tuple)
     out = mid_class_df.append(large_class_df)  # 拼接中类和大类的data frame
-    out.columns = ['编码', '日期', '销量']
+    out.columns = ['bianma', 'riqi', 'xiaoliang']
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
     pprint(class_mse_dict)

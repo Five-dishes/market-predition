@@ -39,6 +39,15 @@ class DateUtil:
             else:
                 return no_skip
 
+    def distance(self, start: int or np.int64, end: int or np.int64) -> int:
+        bubble_len = 0
+        for s, e, p in self.festival_dates:
+            if start < s and end > e:
+                bubble_len = 14
+        start = self.int_to_date(start)
+        end = self.int_to_date(end)
+        return (end - start).days - bubble_len
+
 
 if __name__ == '__main__':
     du = DateUtil()
