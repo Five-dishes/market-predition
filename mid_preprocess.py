@@ -65,5 +65,5 @@ for index in reduced.index:
 
 reduced.drop('custid', axis=1, inplace=True)
 reduced.drop('是否促销', axis=1, inplace=True)
-reduced.to_csv('processed_1.csv', sep=',', encoding='gbk')
+reduced.to_csv('processed_mid.csv', sep=',', encoding='gbk')
 

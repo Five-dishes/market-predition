@@ -2,23 +2,19 @@ import pandas as pd
 import numpy as np
 import operator
 from copy import deepcopy
-from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.ensemble import AdaBoostRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.preprocessing import RobustScaler
 from sklearn.svm import SVR
 from naive_regression import NaiveRegression
-from week_regression import WeekRegression
-from mode_regression import Mode
 from hmmlearn.hmm import GaussianHMM
 from weighted_regression import WeightRegression
 from sep_regression import SepRegression
 from arima import ARIMA_
 from print_util import check_results
-from xgboost_predict import XGboost
+from pprint import pprint
 import time
+from xgboost_predict import XGboost
 
 
 def push(x, y):  # 将y插入x尾部，将x头部与y等长的序列丢弃
@@ -67,10 +63,10 @@ def predict(model, matrix, predict_len=30, is_time_related=False,
 
 def evaluate_on(model, train, test, is_time_related):
     X_test, y_test = test[:, :-1], test[:, -1]
-    y_pred, feature_list  = predict(model, train,
-                                    predict_len=len(y_test),
-                                    is_time_related=is_time_related,
-                                    predict_one_week=True)
+    y_pred, feature_list = predict(model, train,
+                                   predict_len=len(y_test),
+                                   is_time_related=is_time_related,
+                                   predict_one_week=True)
 
     mse = ((y_pred - y_test) ** 2).mean()
     print('MSE \t\t {:4.2f}'.format(mse))
@@ -79,60 +75,91 @@ def evaluate_on(model, train, test, is_time_related):
     show_sequence = False
     if show_sequence and mse > 30:
         check_results(feature_list, y_pred, y_test)
-    return mse
+    return mse, y_pred
+
+
+# 模型表
+models = {
+    'sep regression': SepRegression(smooth=False),
+    # 'Weighted Regression': WeightRegression(smooth=False),
+    # 'Weekday Average': NaiveRegression(),
+    # 'Last Week Average': WeekRegression(),
+    # 'Smooth Weighted Regression': WeightRegression(smooth=True),
+    # 'Linear Regression': LinearRegression(),
+    # 'KNN 3': KNeighborsRegressor(n_neighbors=3),
+    # 'SVR': SVR(),
+    'ARIMA7': ARIMA_((7, 0, 1)),
+    # 'ARIMA14': ARIMA_((14, 0, 1)),
+    'XGboost': XGboost(),
+    # 'naive_select': NaiveSelect(),
+    # 'naive_selectWeight': NaiveSelectWeight(),
+}
+
+
+def is_arima(mod: str):
+    return mod.startswith("ARIMA")
+
+
+def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
+    if is_arima(mod):
+        return True
+    time_related_models = [
+        'sep regression',
+    ]
+    if mod in time_related_models:
+        return True
+    return False
+
+
+valid_matrix = []
+
+
+def full_service(matrix: np.array, cur_class):
+    # print(len(mid_group))
+    # spliter = int(len(matrix) - min(7, int(len(matrix) * 0.33)))  # validation set 设为7
+    spliter = int(len(matrix) - 7)  # 划分训练集与验证集
+    train_set, validation_set = matrix[0: spliter], matrix[spliter:]
+
+    ss = np.array([cur_class, 'validation', *validation_set[:, -1]]).reshape((1, -1))
+    valid_matrix.append(ss)
+    mse_dict = {}
+    prediction_on_validation_dict = {}
+    for name in models:  # type=str
+        if is_arima(name) and matrix[:, -1].mean() < 10:
+            continue
+        print(name.ljust(30), ':', end='')
+        model = models[name]
+        # 在验证集上测试
+        mse_dict[name], prediction_on_validation = evaluate_on(
+            model, train_set, validation_set, is_time_related_model(name))
+        prediction_on_validation_dict[name] = prediction_on_validation
+        ss = np.array([cur_class, name, *prediction_on_validation]).reshape((1, -1))
+        valid_matrix.append(ss)
+    # 找出在验证集上工作最好的模型
+    best_model_on_validation = min(mse_dict.items(), key=operator.itemgetter(1))[0]
+    best_prediction_on_validation = prediction_on_validation_dict[best_model_on_validation]
+
+    print('Best model: {}'.format(best_model_on_validation))
+
+    # 用验证集上的最优模型来预测（比较naive的方式）
+    prediction_on_test, no_use = predict(
+        models[best_model_on_validation], matrix,
+        is_time_related=is_time_related_model(best_model_on_validation),
+        predict_one_week=True)
+
+    return best_model_on_validation, best_prediction_on_validation, \
+            prediction_on_test, mse_dict[best_model_on_validation], validation_set[:, -1]
 
 
 if __name__ == '__main__':
-    all_classes = pd.read_csv(
-        'processed_2.csv', header=None, sep=',', encoding='gbk')
+    all_classes_small = pd.read_csv(
+        'small_vector.csv', header=None, sep=',', encoding='gbk')
+    all_classes_mid = pd.read_csv(
+        'mid_vector.csv', header=None, sep=',', encoding='gbk')
 
-    appeared_mid_class = all_classes[0].unique()  # 在训练数据出现过的中类
-    groups = all_classes.groupby([0])  # 按中类分组
-
-    # 模型表
-    models = {
-        'sep regression': SepRegression(smooth=False),
-        'Weighted Regression': WeightRegression(smooth=False),
-        'Weekday Average': NaiveRegression(),
-        'Last Week Average': WeekRegression(),
-        'Smooth Weighted Regression': WeightRegression(smooth=True),
-        'Mode': Mode(),
-        'Linear Regression': LinearRegression(),
-        'KNN 3': KNeighborsRegressor(n_neighbors=3),
-        # 'Adaboost LR': AdaBoostRegressor(
-        #     base_estimator=LinearRegression(), loss='linear',
-        # ),
-        #     # n_estimators=10, learning_rate=0.1,),
-        #
-        # 'Adaboost DTR': AdaBoostRegressor(
-        #     loss='linear',
-        # ),
-        #
-        # 'Adaboost SVR': AdaBoostRegressor(
-        #     base_estimator=SVR(), loss='linear',
-        # ),
-        #     # n_estimators=10, learning_rate=0.1,),
-        #
-        # 'Random Forest': RandomForestRegressor(
-        #     max_features=4, max_depth=3),
-        #
-        # 'GBR': GradientBoostingRegressor(
-        #     # n_estimators=100, learning_rate=0.1,
-        #     max_depth=1, loss='ls'),
-        'SVR': SVR(),
-        'ARIMA': ARIMA_((7, 0, 1)),
-        'XGboost': XGboost(),
-        # 'GaussianHMM': GaussianHMM(n_components=4, covariance_type="diag", n_iter=1000)
-    }
-
-    def is_time_related_model(mod):  # 时间序列模型与普通模型的输入格式不同
-        time_related_models = [
-            'ARIMA',
-            'sep regression',
-        ]
-        if mod in time_related_models:
-            return True
-        return False
+    appeared_mid_class = all_classes_small[0].unique()  # 在训练数据出现过的中类
+    mid_class_groups_small = all_classes_small.groupby([0])  # 按中类分组
+    mid_class_groups_mid = all_classes_mid.groupby([0])  # 按中类分组
 
     large_class_dict = {}
     template = pd.read_csv('template.csv', sep=',', header=0, encoding='gbk')
@@ -141,8 +168,10 @@ if __name__ == '__main__':
     large_class_template = class_template[class_template < 100]  # 去除中类
 
     model_usage_count = {}
-    for model in models:
-        model_usage_count[model] = 0
+    for model_name in models:
+        model_usage_count[model_name] = 0
+
+    class_mse_dict = {}
 
     for large_class in large_class_template:
         for date in range(20150501, 20150531):
@@ -157,54 +186,72 @@ if __name__ == '__main__':
                 mid_class_record.append((mid_class, date, 0))  # 中类record用三元tuple
             continue
 
-        group = groups.get_group(mid_class)
+        group = mid_class_groups_small.get_group(mid_class)
+        mid_group = mid_class_groups_mid.get_group(mid_class)
         large_class = mid_class // 100
+        small_groups = group.groupby([1])
+        accumulated_pred_on_test_small = np.zeros((30,), dtype=np.float32)
 
-        print('Current mid-class: {} {}'.format(mid_class, '-'*80))
-        matrix = group.drop([0], axis=1).values.astype(np.float32)  # 扔掉中类标签、转化为浮点数
-        spliter = int(len(group) - min(28, int(len(group) * 0.33)))  # 划分训练集与验证集
-        train, validation = matrix[0: spliter], matrix[spliter:]
+        # 中类直接预测
+        mid_group = mid_group.drop([0], axis=1)  # 扔掉中类标签
+        matrix_mid = mid_group.values.astype(np.float32)  # 转化为浮点数
 
-        mse_dict = {}
-        for name in models:  # type=str
-            print(name.ljust(20), ':', end='')
-            model = models[name]
-            # 在验证集上测试
-            mse_dict[name] = evaluate_on(model, train, validation,
-                                         is_time_related_model(name))
-        # 找出在验证集上工作最好的模型
-        best_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
-        model_usage_count[best_model] += 1
-        print('Best model: {}'.format(best_model))
+        if matrix_mid[:, -1].mean() < 10:
+            continue
 
-        # 用验证集上的最优模型来预测（比较naive的方式）
-        results, no_use = predict(models[best_model], matrix,
-                                  is_time_related=is_time_related_model(best_model),
-                                  predict_one_week=True)
-        arima_error = False
-        for value in results:
-            if value > 999:
-                arima_error = True
-        if arima_error:
-            assert best_model == 'ARIMA'
-            mse_dict.pop(best_model, None)
-            seconde_model = min(mse_dict.items(), key=operator.itemgetter(1))[0]
-            print('ARIMA Error! Fall back to second best model {}'.format(seconde_model))
-            results, no_use = predict(models[seconde_model], matrix,
-                                      is_time_related=is_time_related_model(seconde_model),
-                                      predict_one_week=True)
-            model_usage_count[best_model] -= 1
-            model_usage_count[seconde_model] += 1
-        print(matrix[:, -1])
-        print(results)
+        print('Current mid-class: {} {}'.format(mid_class, '=' * 80))
+
+        best_validated_model_mid, best_validated_prediction_mid, \
+            pred_on_test_mid, mse_mid, used_valid_set_mid = \
+            full_service(matrix_mid, mid_class)
+
+        overall_validated_pred_small = np.zeros_like(used_valid_set_mid)
+        accumulated_valid_set_small = np.zeros_like(best_validated_prediction_mid)
+
+        for small_class, small_group in small_groups:  # 每个中类下 训练所有小类
+            print('Current small-class: {} {}'.format(small_class, '-' * 80))
+            small_group = small_group.drop([0], axis=1)  # 扔掉中类标签
+            matrix_small = small_group.drop([1], axis=1).values.astype(np.float32)  # 扔掉小类标签、转化为浮点数
+
+            best_validated_model_small, best_validated_pred_small, \
+                pred_on_test_small, best_mse_small, used_valid_set_small = \
+                full_service(matrix_small, small_class)
+
+            overall_validated_pred_small += best_validated_pred_small
+            accumulated_valid_set_small += used_valid_set_small
+            accumulated_pred_on_test_small += pred_on_test_small
+
+        # print("small class accumulated validation:", used_valid_set_mid)
+        # print("mid class accumulated validation:", accumulated_valid_set_small)
+        assert used_valid_set_mid.all() == accumulated_valid_set_small.all()
+
+        mse_small = np.mean((overall_validated_pred_small - accumulated_valid_set_small) ** 2)
+        print("## MSE on mid class {} by mid class prediction: {}".format(
+            mid_class, mse_mid))
+        print("## MSE on mid class {} by small class accumulation prediction: {}".format(
+            mid_class, mse_small))
 
         date = 20150501
-        for result in results:
+        # print(small_class_results)
+        # print(mid_class_results)
+        if mse_mid > mse_small:
+            class_mse_dict[mid_class] = mse_small
+            chosen_results = accumulated_pred_on_test_small
+            print("## Result by small class accumulation prediction is chosen")
+        else:
+            class_mse_dict[mid_class] = mse_mid
+            chosen_results = pred_on_test_mid
+            print("## Result by mid class prediction is chosen")
+
+        print(matrix_mid[:, -1])
+        print(chosen_results)
+
+        for result in chosen_results:
             large_class_dict[(large_class, date)] += result  # 大类预测 = 中类之和
             mid_class_record.append((mid_class, date, result))  # append到中类record中
             date += 1
 
-        print('Predicting class {} takes {}s'.format(mid_class, time.time()-start_time))
+        print('Predicting mid class {} takes {}s'.format(mid_class, time.time() - start_time))
 
     mid_class_df = pd.DataFrame.from_records(mid_class_record)
     large_class_tuple = [(*k, v) for k, v in large_class_dict.items()]
@@ -213,5 +260,9 @@ if __name__ == '__main__':
     out.columns = ['编码', '日期', '销量']
 
     out.to_csv('results.csv', sep=',', index=None, encoding='gbk')
-    print(model_usage_count)
+    pprint(class_mse_dict)
+
+    valid_matrix = np.concatenate(valid_matrix, axis=0)
+    valid_df = pd.DataFrame(valid_matrix)
+    valid_df.to_csv('valid.csv', sep=',', index=None, encoding='gbk')
 
