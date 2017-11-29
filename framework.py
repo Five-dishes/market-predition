@@ -80,8 +80,8 @@ def evaluate_on(model, train, test, is_time_related):
 
 # 模型表
 models = {
-    # 'sep regression': SepRegression(smooth=False),
-    'Weighted Regression': WeightRegression(smooth=False),
+    'sep regression': SepRegression(smooth=False),
+    # 'Weighted Regression': WeightRegression(smooth=False),
     # 'Weekday Average': NaiveRegression(),
     # 'Last Week Average': WeekRegression(),
     # 'Smooth Weighted Regression': WeightRegression(smooth=True),
